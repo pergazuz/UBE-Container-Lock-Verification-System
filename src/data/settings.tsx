@@ -17,27 +17,17 @@ import { CONTAINER_TYPES } from "./constants";
 
 const KEY = "ube.settings.v1";
 
-/** How each side camera is pre-selected when the Verify Station loads. */
-export type DefaultSource = "none" | "camera" | "demo";
-export type ApiMode = "mock" | "live";
-
 export interface Settings {
   /** Below this confidence a "both locked" result becomes Uncertain. */
   confidenceThreshold: number; // 0..1
   containerType: string;
-  defaultSource: DefaultSource;
   soundOnResult: boolean;
-  apiMode: ApiMode;
-  apiBaseUrl: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   confidenceThreshold: 0.72,
   containerType: CONTAINER_TYPES[0].id,
-  defaultSource: "none",
   soundOnResult: true,
-  apiMode: "mock",
-  apiBaseUrl: "",
 };
 
 interface SettingsStore {

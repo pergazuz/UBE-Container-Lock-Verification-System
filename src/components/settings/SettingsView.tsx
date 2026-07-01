@@ -113,29 +113,6 @@ export function SettingsView() {
         desc="ค่าเริ่มต้นของกล้องประจำสถานี"
       >
         <Row
-          label="แหล่งภาพเริ่มต้น · Default source"
-          hint="เลือกแหล่งภาพที่จะใช้ทันทีเมื่อเปิดหน้าสถานีตรวจสอบ (ทั้งด้าน A และ B)"
-        >
-          <Select
-            value={settings.defaultSource}
-            onValueChange={(v) =>
-              update({ defaultSource: v as typeof settings.defaultSource })
-            }
-          >
-            <SelectTrigger className="w-full sm:w-72">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">เลือกเองทุกครั้ง</SelectItem>
-              <SelectItem value="camera">กล้องประจำสถานี (เปิดอัตโนมัติ)</SelectItem>
-              <SelectItem value="demo">โหมด Demo</SelectItem>
-            </SelectContent>
-          </Select>
-        </Row>
-
-        <Separator />
-
-        <Row
           label="เสียงแจ้งผล · Sound on result"
           hint="เล่นเสียงสั้น ๆ เมื่อได้ผล Pass / Fail"
         >
