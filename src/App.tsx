@@ -1,0 +1,83 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Header } from "@/components/layout/Header";
+import { VerifyStation } from "@/components/verify/VerifyStation";
+import { HistoryView } from "@/components/history/HistoryView";
+import { LogStoreProvider } from "@/data/store";
+import { SessionProvider } from "@/data/session";
+
+function PageShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          {title}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      {children}
+    </main>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border/60 py-4">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-1 px-6 text-center text-[11px] text-muted-foreground sm:flex-row sm:text-left">
+        <span className="font-mono">
+          UBE · Container Lock Verification System
+        </span>
+        <span>
+          <span className="text-primary">POC</span> — Frontend only · ผลตรวจเป็นข้อมูลจำลอง (mock)
+        </span>
+      </div>
+    </footer>
+  );
+}
+
+export default function App() {
+  return (
+    <SessionProvider>
+      <LogStoreProvider>
+        <BrowserRouter>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <PageShell
+                    title="สถานีตรวจสอบการล็อก"
+                    subtitle="วางคอนเทนเนอร์ในกรอบที่กำหนด แล้วกด Verify เพื่อตรวจสอบว่าล็อกครบทั้งสองด้าน"
+                  >
+                    <VerifyStation />
+                  </PageShell>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <PageShell
+                    title="ประวัติการตรวจสอบ & Dashboard"
+                    subtitle="ค้นหา กรอง และส่งออกรายการตรวจสอบทั้งหมด พร้อมการแก้ไขผลโดยหัวหน้างาน"
+                  >
+                    <HistoryView />
+                  </PageShell>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Footer />
+          </div>
+        </BrowserRouter>
+      </LogStoreProvider>
+    </SessionProvider>
+  );
+}
