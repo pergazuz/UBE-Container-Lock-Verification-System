@@ -23,9 +23,10 @@
 | Routing | react-router-dom v7 |
 | Fonts | IBM Plex Sans Thai + IBM Plex Mono |
 
-**Design direction:** industrial control-panel / instrument-terminal — ธีมมืดเชิงปฏิบัติการ,
-สีสัญญาณความปลอดภัย (amber hazard / safety-green PASS / safety-red FAIL), ตัวเลขเชิงเทคนิค
-เป็น monospace, พื้นที่ marked zone + scan-line เหมือนเทอร์มินัลตรวจสอบจริง
+**Design direction:** industrial control-room "INSTRUMENT" HMI — ธีมมืดโทนเย็น,
+สีหลักเป็น electric-azure (`#36c2ff`), สีสัญญาณ green PASS / red FAIL / amber Uncertain,
+ตัวเลขเชิงเทคนิคเป็น monospace, reticle + scan-line เหมือนเทอร์มินัลตรวจสอบจริง
+(palette เดียวกับโปรเจกต์ `pipe_counting`)
 
 ## การใช้งาน (Development)
 

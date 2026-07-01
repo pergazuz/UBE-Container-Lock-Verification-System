@@ -10,45 +10,48 @@
 */
 
 :root {
-  --background: #090b10;
-  --foreground: #e7ebf2;
+  /* "INSTRUMENT" industrial-HMI palette — cool electric-azure identity */
+  --background: #08090c;
+  --foreground: #e9ecf2;
 
-  --card: #10141c;
-  --card-foreground: #e7ebf2;
+  --card: #14171f;
+  --card-foreground: #e9ecf2;
 
-  --popover: #10141c;
-  --popover-foreground: #e7ebf2;
+  --popover: #14171f;
+  --popover-foreground: #e9ecf2;
 
-  /* Amber hazard = primary action */
-  --primary: #f5a623;
-  --primary-foreground: #1a1204;
+  /* Electric azure = primary / live / active */
+  --primary: #36c2ff;
+  --primary-foreground: #04121a;
 
-  --secondary: #1a212c;
+  --secondary: #1a1e29;
   --secondary-foreground: #cdd5e0;
 
-  --muted: #161c26;
-  --muted-foreground: #8792a3;
+  --muted: #131722;
+  --muted-foreground: #8b93a3;
 
-  --accent: #1c2530;
+  --accent: #1a1e29;
   --accent-foreground: #eef2f7;
 
-  --destructive: #f04248;
+  --destructive: #ff5247;
   --destructive-foreground: #fff5f5;
 
-  --border: #232c39;
-  --input: #2a3442;
-  --ring: #f5a623;
+  --border: #232838;
+  --input: #313749;
+  --ring: #36c2ff;
 
-  /* Safety signal semantics */
-  --pass: #2fd98a;
+  /* Signal semantics */
+  --pass: #2fd98a; /* green — both sides locked */
   --pass-foreground: #04160d;
-  --fail: #ff5257;
+  --fail: #ff5247; /* stop red */
   --fail-foreground: #1c0405;
-  --uncertain: #ffc94d;
+  --uncertain: #ffb020; /* amber warn */
   --uncertain-foreground: #1c1403;
-  --hazard: #f5a623;
+  --info: #6e8bff; /* indigo — neutral info */
+  /* "hazard/active" decorative accent unified to the azure signal */
+  --hazard: #36c2ff;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
@@ -81,6 +84,7 @@
   --color-fail-foreground: var(--fail-foreground);
   --color-uncertain: var(--uncertain);
   --color-uncertain-foreground: var(--uncertain-foreground);
+  --color-info: var(--info);
   --color-hazard: var(--hazard);
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -108,17 +112,17 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     font-feature-settings: "cv05", "ss01";
-    /* Layered instrument-panel atmosphere: radial glow + faint grid */
+    /* Blueprint atmosphere: cool azure + indigo vignette */
     background-image:
       radial-gradient(
-        1100px 620px at 82% -10%,
-        color-mix(in oklab, var(--hazard) 9%, transparent),
-        transparent 60%
+        120% 90% at 80% -10%,
+        rgba(54, 194, 255, 0.06),
+        transparent 55%
       ),
       radial-gradient(
-        900px 700px at -5% 110%,
-        color-mix(in oklab, #2f6bff 8%, transparent),
-        transparent 55%
+        100% 80% at 0% 110%,
+        rgba(110, 139, 255, 0.05),
+        transparent 50%
       ),
       linear-gradient(
         to bottom,
