@@ -17,7 +17,7 @@ function PageShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+    <main className="w-full flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
           {title}
@@ -32,7 +32,7 @@ function PageShell({
 function Footer() {
   return (
     <footer className="border-t border-border/60 py-4">
-      <div className="mx-auto flex max-w-7xl items-center px-6 text-[11px] text-muted-foreground">
+      <div className="flex items-center px-4 text-[11px] text-muted-foreground sm:px-6 lg:px-8">
         <span className="font-mono">
           UBE · Container Lock Verification System
         </span>
