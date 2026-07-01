@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import {
   SlidersHorizontal,
   Camera,
-  Cpu,
   Database,
   Info,
   Download,
@@ -14,7 +13,6 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -36,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSettings } from "@/data/settings";
 import { useLogStore } from "@/data/store";
-import { CONTAINER_TYPES, STATIONS, EMPLOYEES } from "@/data/constants";
+import { CONTAINER_TYPES, STATIONS } from "@/data/constants";
 import { logsToCsv, downloadCsv } from "@/lib/csv";
 import { toDateInputValue } from "@/lib/format";
 
@@ -182,42 +180,6 @@ export function SettingsView() {
         </div>
       </Section>
 
-      {/* ---- AI / Backend ---- */}
-      <Section
-        icon={<Cpu className="size-4" />}
-        title="AI & Backend"
-        desc="การเชื่อมต่อโมเดลตรวจสอบ (จุดสลับ verifyContainer)"
-      >
-        <Row
-          label="โหมดการทำงาน · Inference mode"
-          hint="ปัจจุบันใช้ผลจำลอง (mock) สำหรับ POC — โหมด Live จะเปิดใช้เมื่อเชื่อมต่อ backend จริง"
-        >
-          <div className="flex items-center gap-2">
-            <Badge variant="hazard" className="gap-1.5">
-              <Cpu className="size-3" />
-              Mock (POC)
-            </Badge>
-            <Badge variant="outline" className="text-muted-foreground">
-              Live · เร็ว ๆ นี้
-            </Badge>
-          </div>
-        </Row>
-
-        <Separator />
-
-        <Row
-          label="API Endpoint"
-          hint="ที่อยู่ backend สำหรับเฟสถัดไป — บันทึกไว้ล่วงหน้าได้ (ยังไม่ถูกเรียกใช้ในโหมด mock)"
-        >
-          <Input
-            value={settings.apiBaseUrl}
-            onChange={(e) => update({ apiBaseUrl: e.target.value })}
-            placeholder="https://api.example.com/verify"
-            className="w-full font-mono text-xs sm:w-72"
-          />
-        </Row>
-      </Section>
-
       {/* ---- Data ---- */}
       <Section
         icon={<Database className="size-4" />}
@@ -276,11 +238,6 @@ export function SettingsView() {
       >
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
           <About label="ระบบ" value="UBE Container Lock Verification" />
-          <About label="เวอร์ชัน" value="0.1.0 · POC" />
-          <About label="พนักงานในระบบ" value={`${EMPLOYEES.length} คน`} />
-          <About label="Frontend" value="React + Vite + TypeScript" />
-          <About label="UI" value="shadcn/ui · Tailwind" />
-          <About label="Runtime" value="Bun" />
         </div>
       </Section>
 
