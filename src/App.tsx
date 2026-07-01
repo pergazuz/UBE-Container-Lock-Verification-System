@@ -2,8 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { VerifyStation } from "@/components/verify/VerifyStation";
 import { HistoryView } from "@/components/history/HistoryView";
+import { SettingsView } from "@/components/settings/SettingsView";
 import { LogStoreProvider } from "@/data/store";
 import { SessionProvider } from "@/data/session";
+import { SettingsProvider } from "@/data/settings";
 
 function PageShell({
   title,
@@ -41,8 +43,9 @@ function Footer() {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <LogStoreProvider>
+    <SettingsProvider>
+      <SessionProvider>
+        <LogStoreProvider>
         <BrowserRouter>
           <div className="flex min-h-screen flex-col">
             <Header />
@@ -69,12 +72,24 @@ export default function App() {
                   </PageShell>
                 }
               />
+              <Route
+                path="/settings"
+                element={
+                  <PageShell
+                    title="ตั้งค่าระบบ (Settings)"
+                    subtitle="กำหนดเกณฑ์การตรวจสอบ กล้อง การเชื่อมต่อ AI และจัดการข้อมูล"
+                  >
+                    <SettingsView />
+                  </PageShell>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Footer />
           </div>
         </BrowserRouter>
-      </LogStoreProvider>
-    </SessionProvider>
+        </LogStoreProvider>
+      </SessionProvider>
+    </SettingsProvider>
   );
 }

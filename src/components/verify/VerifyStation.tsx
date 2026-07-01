@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ScanSearch,
   Loader2,
@@ -16,8 +16,9 @@ import { useCamera } from "./useCamera";
 import { verifyContainer } from "@/lib/verifyContainer";
 import { useLogStore } from "@/data/store";
 import { useSession } from "@/data/session";
+import { useSettings } from "@/data/settings";
 import { employeeName, stationName } from "@/data/constants";
-import type { Override, VerificationLog } from "@/types";
+import type { Override, VerificationLog, Verdict } from "@/types";
 
 type Phase = "idle" | "verifying" | "result";
 
@@ -32,8 +33,10 @@ const EMPTY_SIDE: SideState = { source: "none", fromCamera: false };
 export function VerifyStation() {
   const { stationId, employeeId } = useSession();
   const { addLog, applyOverride } = useLogStore();
+  const { settings } = useSettings();
   const camA = useCamera();
   const camB = useCamera();
+  const didInit = useRef(false);
 
   const [a, setA] = useState<SideState>(EMPTY_SIDE);
   const [b, setB] = useState<SideState>(EMPTY_SIDE);
@@ -108,6 +111,7 @@ export function VerifyStation() {
       employeeId,
       imageA: imgA,
       imageB: imgB,
+      confidenceThreshold: settings.confidenceThreshold,
     });
     const newLog = addLog({
       stationId,
@@ -118,7 +122,8 @@ export function VerifyStation() {
     });
     setLog(newLog);
     setPhase("result");
-  }, [a, b, camA, camB, stationId, employeeId, addLog]);
+    if (settings.soundOnResult) playResultSound(result.overall);
+  }, [a, b, camA, camB, stationId, employeeId, addLog, settings]);
 
   const resetSide = useCallback((s: SideState): SideState => {
     if (s.source === "image" && s.fromCamera) {
@@ -143,6 +148,15 @@ export function VerifyStation() {
     },
     [log, applyOverride],
   );
+
+  // Apply the station's default frame source once on mount.
+  useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+    if (settings.defaultSource === "demo") demoBoth();
+    else if (settings.defaultSource === "camera") startBothCameras();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sideReady = (s: SideState, camState: string) =>
     (s.source === "camera" && camState === "live") ||
@@ -281,6 +295,40 @@ export function VerifyStation() {
       )}
     </div>
   );
+}
+
+/** Short audio cue on result — pleasant chime for Pass, low buzz otherwise. */
+function playResultSound(verdict: Verdict) {
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    const notes =
+      verdict === "Pass"
+        ? [660, 990]
+        : verdict === "Uncertain"
+          ? [520, 520]
+          : [300, 200];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = verdict === "Pass" ? "sine" : "square";
+      osc.frequency.value = freq;
+      const t = now + i * 0.14;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+    setTimeout(() => ctx.close(), 600);
+  } catch {
+    /* audio not available — ignore */
+  }
 }
 
 const STEPS = [

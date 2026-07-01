@@ -83,6 +83,7 @@ function round2(n: number) {
 function deriveVerdict(
   sideA: SideResult,
   sideB: SideResult,
+  threshold: number,
 ): { overall: Verdict; confidence: number; reason?: string } {
   const anyNotVisible =
     sideA.status === "NotVisible" || sideB.status === "NotVisible";
@@ -118,7 +119,7 @@ function deriveVerdict(
 
   // Both locked, but low confidence → ask for a manual recheck rather than
   // returning a possibly-false Pass (per false-positive minimization guidance).
-  if (confidence < CONFIDENCE_THRESHOLD) {
+  if (confidence < threshold) {
     return {
       overall: "Uncertain",
       confidence,
@@ -154,9 +155,10 @@ export async function verifyContainer(
     };
   }
 
+  const threshold = input.confidenceThreshold ?? CONFIDENCE_THRESHOLD;
   const sideA = mockSide();
   const sideB = mockSide();
-  const { overall, confidence, reason } = deriveVerdict(sideA, sideB);
+  const { overall, confidence, reason } = deriveVerdict(sideA, sideB, threshold);
 
   return { sideA, sideB, overall, confidence, containerPresent: true, reason };
 }

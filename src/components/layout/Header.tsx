@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { ScanLine, History, Boxes } from "lucide-react";
+import { ScanLine, History, Boxes, Settings } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "สถานีตรวจสอบ", en: "Verify", icon: ScanLine, end: true },
   { to: "/history", label: "ประวัติ & Dashboard", en: "History", icon: History, end: false },
+  { to: "/settings", label: "ตั้งค่า", en: "Settings", icon: Settings, end: false },
 ];
 
 export function Header() {

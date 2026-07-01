@@ -13,6 +13,14 @@ export const STATIONS = [
   { id: "ST-03", name: "จุดคัดแยก (Sorting)" },
 ] as const;
 
+/**
+ * Supported container/lock types. v1 pilot uses a single standard type; the
+ * selector is here so more variants can be added later without a rebuild.
+ */
+export const CONTAINER_TYPES = [
+  { id: "UBE-STD-01", name: "คอนเทนเนอร์มาตรฐาน · Standard tote (2 latch)" },
+] as const;
+
 export const EMPLOYEES: Employee[] = [
   { id: "EMP-1042", name: "สมชาย ใจดี", role: "operator" },
   { id: "EMP-1088", name: "กนกวรรณ ศรีสุข", role: "operator" },

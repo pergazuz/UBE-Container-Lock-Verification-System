@@ -44,6 +44,8 @@ export interface VerifyInput {
   imageA?: string;
   /** Data URL of the frame from the Side B camera, if captured/uploaded. */
   imageB?: string;
+  /** Optional override for the Uncertain threshold (from settings). */
+  confidenceThreshold?: number;
 }
 
 /** A supervisor correction applied on top of a prediction. */

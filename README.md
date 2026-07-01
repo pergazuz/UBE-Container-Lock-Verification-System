@@ -60,6 +60,9 @@ bun run typecheck  # ตรวจ type อย่างเดียว
 3. หัวหน้างานสามารถ **แก้ไขผล (Supervisor Override)** ได้ โดยบันทึกแยกไว้เพื่อใช้ retraining
 4. **ประวัติ & Dashboard** (`/history`) — สถิติรายวัน, ตารางค้นหา/กรอง (ผลลัพธ์, สถานี, ช่วงวันที่),
    ดูรายละเอียดรายการ, และ **ส่งออก CSV**
+5. **ตั้งค่า** (`/settings`) — เกณฑ์ความมั่นใจ (confidence threshold), ชนิดคอนเทนเนอร์,
+   แหล่งภาพเริ่มต้น, เสียงแจ้งผล, การเชื่อมต่อ AI/backend และการจัดการข้อมูล
+   (ทุกค่าเก็บใน localStorage และมีผลกับการทำงานจริง)
 
 ## จุดเชื่อมต่อ AI/Backend ในอนาคต (The single swap point)
 
@@ -90,14 +93,16 @@ src/
     csv.ts                     export CSV
     utils.ts                   cn()
   data/
-    constants.ts               สถานี / พนักงาน / หัวหน้างาน (mock)
+    constants.ts               สถานี / พนักงาน / หัวหน้างาน / ชนิดคอนเทนเนอร์ (mock)
     session.tsx                context: สถานี + ผู้ตรวจ ปัจจุบัน
+    settings.tsx               context: การตั้งค่าระบบ (localStorage)
     store.tsx                  context: log store (localStorage) + override
     seed.ts                    สร้างประวัติตัวอย่างตอนเปิดครั้งแรก
   components/
-    ui/                        shadcn primitives (button, card, dialog, select, ...)
+    ui/                        shadcn primitives (button, card, dialog, select, switch, ...)
     verify/                    หน้าจอสถานีตรวจสอบ (dual camera, result, override, latch graphic)
     history/                   Dashboard + ตาราง + สถิติ + รายละเอียด
+    settings/                  หน้าตั้งค่าระบบ
     layout/Header.tsx          แถบบน + nav + ตัวเลือก session
   App.tsx                      providers + routing
 ```
