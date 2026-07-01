@@ -30,12 +30,9 @@ function PageShell({
 function Footer() {
   return (
     <footer className="border-t border-border/60 py-4">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-1 px-6 text-center text-[11px] text-muted-foreground sm:flex-row sm:text-left">
+      <div className="mx-auto flex max-w-7xl items-center px-6 text-[11px] text-muted-foreground">
         <span className="font-mono">
           UBE · Container Lock Verification System
-        </span>
-        <span>
-          <span className="text-primary">POC</span> — Frontend only · ผลตรวจเป็นข้อมูลจำลอง (mock)
         </span>
       </div>
     </footer>
