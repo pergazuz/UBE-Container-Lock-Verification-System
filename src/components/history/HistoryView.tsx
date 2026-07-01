@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, Download, RotateCcw, Inbox, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -122,22 +123,22 @@ export function HistoryView() {
             </FilterField>
 
             <FilterField label="ตั้งแต่วันที่">
-              <Input
-                type="date"
+              <DatePicker
                 value={dateFrom}
                 max={dateTo || undefined}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full lg:w-[150px]"
+                onChange={setDateFrom}
+                placeholder="ตั้งแต่วันที่"
+                className="w-full lg:w-[160px]"
               />
             </FilterField>
 
             <FilterField label="ถึงวันที่">
-              <Input
-                type="date"
+              <DatePicker
                 value={dateTo}
                 min={dateFrom || undefined}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full lg:w-[150px]"
+                onChange={setDateTo}
+                placeholder="ถึงวันที่"
+                className="w-full lg:w-[160px]"
               />
             </FilterField>
           </div>
