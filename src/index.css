@@ -94,6 +94,10 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  /* Strong easing curves — built-in CSS easings are too weak */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @layer base {
@@ -229,10 +233,10 @@
 
 @keyframes ube-pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--hazard) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--hazard) 35%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 18px transparent;
+    box-shadow: 0 0 0 12px transparent;
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
@@ -279,7 +283,7 @@
   animation: ube-sweep 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 .animate-pulse-ring {
-  animation: ube-pulse-ring 2s ease-out infinite;
+  animation: ube-pulse-ring 2.6s ease-out infinite;
 }
 .animate-rise {
   animation: ube-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;

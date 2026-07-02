@@ -23,21 +23,65 @@ export const CONTAINER_TYPES = [
 
 /**
  * Sample footage used as the station's camera feed for the POC (served from
- * public/videos). Each Verify Station camera plays one of these on loop, and
- * the current frame is captured when the operator taps Verify.
+ * public/videos). Each clip plays ONCE and freezes on its final frame — the
+ * frame the operator verifies against. `finalStatus` is the ground truth of
+ * that final frame, which the mock model returns deterministically.
  */
-const SAMPLE_VIDEO_FILES = [
-  "11a31738-3618-4d40-bf04-073dc11feb12.mp4",
-  "17079749-4cdd-4db9-bfc9-f9412926652d.mp4",
-  "3cd8a0f9-0e77-478e-b9c0-229ee6aba58b.mp4",
-  "62705ed2-1283-49bf-b667-f13937894256.mp4",
-  "7fcef7b4-2083-43a3-8430-09cceeab713f.mp4",
-  "c6f63c2d-07e1-487b-9209-73c36767486e.mp4",
-];
+export interface SampleVideo {
+  id: string;
+  src: string;
+  /** Ground-truth latch state on the clip's final frame. */
+  finalStatus: "Locked" | "Unlocked";
+  /** Seconds into the clip when the latch becomes locked (absent = never). */
+  lockAtSec?: number;
+  /** Picker label shown in each camera's sample menu. */
+  label: string;
+}
 
-export const SAMPLE_VIDEOS = SAMPLE_VIDEO_FILES.map(
-  (f) => `${import.meta.env.BASE_URL}videos/${f}`,
-);
+const VIDEO_BASE = `${import.meta.env.BASE_URL}videos/`;
+
+export const SAMPLE_VIDEOS: SampleVideo[] = [
+  {
+    id: "3cd8a0f9",
+    src: `${VIDEO_BASE}3cd8a0f9-0e77-478e-b9c0-229ee6aba58b.mp4`,
+    finalStatus: "Locked",
+    lockAtSec: 4,
+    label: "คลิป 1 · ล็อก",
+  },
+  {
+    id: "58c93254",
+    src: `${VIDEO_BASE}58c93254-5151-43ab-bec9-e42f4d240c9a.mp4`,
+    finalStatus: "Locked",
+    lockAtSec: 3,
+    label: "คลิป 2 · ล็อก",
+  },
+  {
+    id: "62705ed2",
+    src: `${VIDEO_BASE}62705ed2-1283-49bf-b667-f13937894256.mp4`,
+    finalStatus: "Unlocked",
+    label: "คลิป 3 · ไม่ล็อก",
+  },
+  {
+    id: "a2174e62",
+    src: `${VIDEO_BASE}a2174e62-9b37-4a21-8a1a-8610f959fcaf.mp4`,
+    finalStatus: "Locked",
+    lockAtSec: 5,
+    label: "คลิป 4 · ล็อก",
+  },
+  {
+    id: "c6f63c2d",
+    src: `${VIDEO_BASE}c6f63c2d-07e1-487b-9209-73c36767486e.mp4`,
+    finalStatus: "Unlocked",
+    label: "คลิป 5 · ไม่ล็อก",
+  },
+  {
+    id: "eefee1ed",
+    src: `${VIDEO_BASE}eefee1ed-1588-4d27-8e56-ebd1f1ae5363.mp4`,
+    finalStatus: "Locked",
+    lockAtSec: 7,
+    label: "คลิป 6 · ล็อก",
+  },
+];
 
 export const EMPLOYEES: Employee[] = [
   { id: "EMP-1042", name: "สมชาย ใจดี", role: "operator" },

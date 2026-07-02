@@ -57,13 +57,19 @@ function randBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-/** Mock a single side: mostly Locked, occasionally Unlocked / NotVisible. */
-function mockSide(): SideResult {
-  const status = pickWeighted<LockStatus>([
-    ["Locked", 68],
-    ["Unlocked", 22],
-    ["NotVisible", 10],
-  ]);
+/**
+ * Mock a single side. With a ground-truth `expected` status (from the chosen
+ * sample clip) the result is deterministic; otherwise falls back to a
+ * weighted random outcome.
+ */
+function mockSide(expected?: LockStatus): SideResult {
+  const status =
+    expected ??
+    pickWeighted<LockStatus>([
+      ["Locked", 68],
+      ["Unlocked", 22],
+      ["NotVisible", 10],
+    ]);
 
   // Confidence bands feel realistic per outcome.
   const confidence =
@@ -136,12 +142,15 @@ export async function verifyContainer(
 ): Promise<VerificationResult> {
   // In the real version, `input.imageA` and `input.imageB` (one frame per
   // side camera) would each be sent to the model / vision endpoint.
-  void input;
-
   await delay(randBetween(MIN_DELAY, MAX_DELAY));
 
+  // Deterministic when the caller supplies the sample clips' ground truth;
+  // the random "no container" case only applies to fully-random mocking.
+  const deterministic =
+    input.expectedStatusA != null || input.expectedStatusB != null;
+
   // ~6% of the time no container is detected in the marked zone.
-  const containerPresent = Math.random() > 0.06;
+  const containerPresent = deterministic || Math.random() > 0.06;
   if (!containerPresent) {
     const empty: SideResult = { status: "NotVisible", confidence: 0.2 };
     return {
@@ -156,8 +165,8 @@ export async function verifyContainer(
   }
 
   const threshold = input.confidenceThreshold ?? CONFIDENCE_THRESHOLD;
-  const sideA = mockSide();
-  const sideB = mockSide();
+  const sideA = mockSide(input.expectedStatusA);
+  const sideB = mockSide(input.expectedStatusB);
   const { overall, confidence, reason } = deriveVerdict(sideA, sideB, threshold);
 
   return { sideA, sideB, overall, confidence, containerPresent: true, reason };
