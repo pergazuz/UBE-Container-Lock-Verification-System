@@ -23,7 +23,7 @@ import { VerdictBadge } from "@/components/VerdictBadge";
 import { OverrideDialog } from "@/components/verify/OverrideDialog";
 import { LOCK_VISUAL } from "@/components/verdict-visual";
 import { useLogStore } from "@/data/store";
-import { userName } from "@/data/auth";
+import { useAuth, userName } from "@/data/auth";
 import { stationName } from "@/data/constants";
 import { formatConfidence, formatDateTime, lockStatusLabel } from "@/lib/format";
 import {
@@ -43,8 +43,13 @@ interface Props {
 
 export function LogDetailDialog({ log, onOpenChange }: Props) {
   const { applyOverride } = useLogStore();
+  const { currentUser } = useAuth();
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [zoomSide, setZoomSide] = useState<SideKey | null>(null);
+
+  // Overriding a verdict is a supervisor-only action — operators don't get
+  // the button at all.
+  const canOverride = currentUser?.role === "supervisor";
 
   if (!log) return null;
   const finalVerdict = effectiveVerdict(log);
@@ -122,25 +127,31 @@ export function LogDetailDialog({ log, onOpenChange }: Props) {
               </div>
             )}
 
-            <Separator />
+            {canOverride && (
+              <>
+                <Separator />
 
-            <Button variant="outline" onClick={() => setOverrideOpen(true)}>
-              <PencilLine />
-              {log.override ? "แก้ไขผลอีกครั้ง" : "แก้ไขผล (Supervisor Override)"}
-            </Button>
+                <Button variant="outline" onClick={() => setOverrideOpen(true)}>
+                  <PencilLine />
+                  {log.override ? "แก้ไขผลอีกครั้ง" : "แก้ไขผล (Supervisor Override)"}
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Nested INSIDE this dialog's content: clicks in the nested dialogs
               then bubble through this dialog's React tree, so its dismissable
               layer doesn't mistake them for outside clicks and close this
               dialog along with the inner one. */}
-          <OverrideDialog
-            open={overrideOpen}
-            onOpenChange={setOverrideOpen}
-            modelVerdict={log.result.overall}
-            currentVerdict={finalVerdict}
-            onSubmit={handleOverride}
-          />
+          {canOverride && (
+            <OverrideDialog
+              open={overrideOpen}
+              onOpenChange={setOverrideOpen}
+              modelVerdict={log.result.overall}
+              currentVerdict={finalVerdict}
+              onSubmit={handleOverride}
+            />
+          )}
 
           <FrameLightbox
             log={log}

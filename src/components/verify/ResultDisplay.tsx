@@ -7,7 +7,7 @@ import { ConfidenceMeter } from "./ConfidenceMeter";
 import { VERDICT_VISUAL } from "@/components/verdict-visual";
 import { SIDE_KEYS, effectiveVerdict, type VerificationLog } from "@/types";
 import { formatConfidence, formatTime, verdictLabel } from "@/lib/format";
-import { userName } from "@/data/auth";
+import { useAuth, userName } from "@/data/auth";
 
 interface Props {
   log: VerificationLog;
@@ -16,11 +16,16 @@ interface Props {
 }
 
 export function ResultDisplay({ log, onOverride, onReset }: Props) {
+  const { currentUser } = useAuth();
   const { result } = log;
   const finalVerdict = effectiveVerdict(log);
   const visual = VERDICT_VISUAL[finalVerdict];
   const Icon = visual.icon;
   const overridden = Boolean(log.override);
+
+  // Overriding a verdict is a supervisor-only action — operators don't get
+  // the button at all.
+  const canOverride = currentUser?.role === "supervisor";
 
   return (
     <div className="flex flex-col gap-5">
@@ -130,15 +135,17 @@ export function ResultDisplay({ log, onOverride, onReset }: Props) {
           <RotateCcw />
           สแกนตู้ถัดไป
         </Button>
-        <Button
-          onClick={onOverride}
-          variant="outline"
-          size="lg"
-          className="flex-1"
-        >
-          <PencilLine />
-          {overridden ? "แก้ไขผลอีกครั้ง" : "แก้ไขผล (Override)"}
-        </Button>
+        {canOverride && (
+          <Button
+            onClick={onOverride}
+            variant="outline"
+            size="lg"
+            className="flex-1"
+          >
+            <PencilLine />
+            {overridden ? "แก้ไขผลอีกครั้ง" : "แก้ไขผล (Override)"}
+          </Button>
+        )}
       </div>
     </div>
   );

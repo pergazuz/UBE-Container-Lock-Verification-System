@@ -53,7 +53,7 @@ Provider nesting in `App.tsx` is ordered by dependency: `SettingsProvider` → `
 
 ### Verify flow
 
-`VerifyStation`: QR scan is the mandatory first step — the ScanBar input works with USB keyboard-wedge scanners (code + Enter) and has POC simulate buttons; Verify stays disabled until an ID is scanned. Scanning computes the attempt type: latest log for that ID not Pass → `rework`. On Verify it captures one frame per side camera (downscaled to ≤640px JPEG — four data URLs per log go into localStorage), pauses the feeds, calls `verifyContainer()`, and persists frames + result under the scanned container ID. Supervisor override requires the supervisor's password (`verifyPassword` in auth) as a signature.
+`VerifyStation`: QR scan is the mandatory first step — the ScanBar input works with USB keyboard-wedge scanners (code + Enter) and has POC simulate buttons; Verify stays disabled until an ID is scanned. Scanning computes the attempt type: latest log for that ID not Pass → `rework`. On Verify it captures one frame per side camera (downscaled to ≤640px JPEG — four data URLs per log go into localStorage), pauses the feeds, calls `verifyContainer()`, and persists frames + result under the scanned container ID. Override is supervisor-only: the override buttons (verify result panel + history detail dialog) are hidden from operators, and the signed-in supervisor signs the override with their session account — no password re-entry (`verifyPassword` remains in the auth surface for a real backend).
 
 ## Conventions
 
