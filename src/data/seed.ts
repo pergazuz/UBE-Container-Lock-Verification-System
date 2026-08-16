@@ -1,9 +1,12 @@
-import type {
-  LockStatus,
-  SideResult,
-  VerificationLog,
-  VerificationResult,
-  Verdict,
+import {
+  SIDE_KEYS,
+  type AppEvent,
+  type LockStatus,
+  type SideKey,
+  type SideResult,
+  type VerificationLog,
+  type VerificationResult,
+  type Verdict,
 } from "@/types";
 import { EMPLOYEES, STATIONS, SUPERVISORS } from "./constants";
 
@@ -30,45 +33,78 @@ function side(status: LockStatus): SideResult {
   return { status, confidence: round2(confidence) };
 }
 
-function buildResult(a: LockStatus, b: LockStatus): VerificationResult {
-  const sideA = side(a);
-  const sideB = side(b);
-  const confidence = round2(Math.min(sideA.confidence, sideB.confidence));
+/** Random per-side status; rework attempts skew heavily to Locked. */
+function pickStatus(rework: boolean): LockStatus {
+  const r = Math.random() * 100;
+  if (rework) return r < 88 ? "Locked" : r < 96 ? "Unlocked" : "NotVisible";
+  return r < 80 ? "Locked" : r < 93 ? "Unlocked" : "NotVisible";
+}
+
+function buildResult(statuses: Record<SideKey, LockStatus>): VerificationResult {
+  const sides = Object.fromEntries(
+    SIDE_KEYS.map((k) => [k, side(statuses[k])]),
+  ) as Record<SideKey, SideResult>;
+  const confidence = round2(
+    Math.min(...SIDE_KEYS.map((k) => sides[k].confidence)),
+  );
+  const anyNotVisible = SIDE_KEYS.some((k) => statuses[k] === "NotVisible");
+  const anyUnlocked = SIDE_KEYS.some((k) => statuses[k] === "Unlocked");
   let overall: Verdict = "Pass";
-  if (a === "NotVisible" || b === "NotVisible") overall = "Fail";
-  else if (a === "Unlocked" || b === "Unlocked") overall = "Fail";
+  if (anyNotVisible || anyUnlocked) overall = "Fail";
   else if (confidence < 0.72) overall = "Uncertain";
-  return { sideA, sideB, overall, confidence, containerPresent: true };
+  return { sides, overall, confidence, containerPresent: true };
 }
 
-const COMBOS: Array<[LockStatus, LockStatus, number]> = [
-  ["Locked", "Locked", 60],
-  ["Locked", "Unlocked", 14],
-  ["Unlocked", "Locked", 12],
-  ["Unlocked", "Unlocked", 6],
-  ["Locked", "NotVisible", 5],
-  ["NotVisible", "Locked", 3],
-];
+function randomStatuses(rework: boolean): Record<SideKey, LockStatus> {
+  return Object.fromEntries(
+    SIDE_KEYS.map((k) => [k, pickStatus(rework)]),
+  ) as Record<SideKey, LockStatus>;
+}
 
-function pickCombo(): [LockStatus, LockStatus] {
-  const total = COMBOS.reduce((s, [, , w]) => s + w, 0);
-  let r = Math.random() * total;
-  for (const [a, b, w] of COMBOS) {
-    r -= w;
-    if (r <= 0) return [a, b];
+/** QR payload used as the container's primary key, e.g. "UBE-7K2FQ9". */
+function mkContainerId(): string {
+  let s = "";
+  for (let i = 0; i < 6; i++) {
+    s += "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 34)];
   }
-  return ["Locked", "Locked"];
+  return `UBE-${s}`;
 }
 
-export function generateSeedLogs(now: number): VerificationLog[] {
+const verifyKind = (v: Verdict) =>
+  v === "Pass" ? "verify_pass" : v === "Fail" ? "verify_fail" : "verify_uncertain";
+
+export interface SeedData {
+  logs: VerificationLog[];
+  events: AppEvent[];
+}
+
+export function generateSeed(now: number): SeedData {
   const logs: VerificationLog[] = [];
-  const count = 28;
+  const count = 26;
   const operators = EMPLOYEES.filter((e) => e.role === "operator");
+  let seq = 0;
+
+  const mkLog = (
+    timestamp: number,
+    containerId: string,
+    attempt: VerificationLog["attempt"],
+    result: VerificationResult,
+    employeeId: string,
+    stationId: string,
+  ): VerificationLog => ({
+    id: `V-${timestamp.toString(36).toUpperCase()}-${seq++}`,
+    containerId,
+    attempt,
+    timestamp,
+    stationId,
+    employeeId,
+    result,
+  });
 
   for (let i = 0; i < count; i++) {
     // Spread across the last ~6 days, clustered in working hours.
     const daysAgo = Math.floor(rand(0, 6));
-    const hour = Math.floor(rand(8, 18));
+    const hour = Math.floor(rand(8, 17));
     const minute = Math.floor(rand(0, 60));
     const d = new Date(now);
     d.setDate(d.getDate() - daysAgo);
@@ -76,33 +112,100 @@ export function generateSeedLogs(now: number): VerificationLog[] {
     const timestamp = d.getTime();
     if (timestamp > now) continue;
 
-    const [a, b] = pickCombo();
-    const result = buildResult(a, b);
+    const result = buildResult(randomStatuses(false));
     const emp = pick(operators);
     const station = pick(STATIONS);
+    const containerId = mkContainerId();
 
-    const log: VerificationLog = {
-      id: `V-${timestamp.toString(36).toUpperCase()}-${i}`,
-      timestamp,
-      stationId: station.id,
-      employeeId: emp.id,
-      result,
-    };
+    const log = mkLog(timestamp, containerId, "initial", result, emp.id, station.id);
 
-    // ~15% of Fails get a supervisor override (false-positive correction),
-    // which is exactly the retraining signal we want to capture.
-    if (result.overall !== "Pass" && Math.random() < 0.18) {
-      const sup = pick(SUPERVISORS);
-      log.override = {
-        overriddenVerdict: "Pass",
-        supervisorId: sup.id,
-        note: "ตรวจสอบด้วยสายตาแล้วล็อกเรียบร้อย (แก้ไขผลที่ระบบอ่านผิด)",
-        at: timestamp + 45_000,
-      };
+    if (result.overall !== "Pass") {
+      if (Math.random() < 0.55) {
+        // The container came back after fixing → a rework attempt on the same
+        // ID, usually passing this time.
+        const reworkTs = timestamp + Math.floor(rand(20, 150)) * 60_000;
+        if (reworkTs < now) {
+          logs.push(
+            mkLog(
+              reworkTs,
+              containerId,
+              "rework",
+              buildResult(randomStatuses(true)),
+              pick(operators).id,
+              station.id,
+            ),
+          );
+        }
+      } else if (Math.random() < 0.35) {
+        // Others get a supervisor override (false-positive correction) —
+        // exactly the retraining signal we want to capture.
+        const sup = pick(SUPERVISORS);
+        log.override = {
+          overriddenVerdict: "Pass",
+          supervisorId: sup.id,
+          note: "ตรวจสอบด้วยสายตาแล้วล็อกเรียบร้อย (แก้ไขผลที่ระบบอ่านผิด)",
+          at: timestamp + 45_000,
+        };
+      }
     }
 
     logs.push(log);
   }
 
-  return logs.sort((x, y) => y.timestamp - x.timestamp);
+  logs.sort((x, y) => y.timestamp - x.timestamp);
+
+  // ---- Events: one verify event per log, plus overrides and daily logins ----
+  const events: AppEvent[] = [];
+  let eseq = 0;
+  const mkEvent = (e: Omit<AppEvent, "id">): AppEvent => ({
+    id: `E-${e.ts.toString(36).toUpperCase()}-${eseq++}`,
+    ...e,
+  });
+
+  for (const log of logs) {
+    events.push(
+      mkEvent({
+        ts: log.timestamp,
+        kind: verifyKind(log.result.overall),
+        actor: log.employeeId,
+        stationId: log.stationId,
+        containerId: log.containerId,
+        detail:
+          log.attempt === "rework"
+            ? `งานแก้ไข (Rework) · ${log.result.overall}`
+            : log.result.reason,
+      }),
+    );
+    if (log.override) {
+      events.push(
+        mkEvent({
+          ts: log.override.at,
+          kind: "override",
+          actor: log.override.supervisorId,
+          stationId: log.stationId,
+          containerId: log.containerId,
+          detail: `${log.result.overall} → ${log.override.overriddenVerdict} · ${log.override.note ?? ""}`,
+        }),
+      );
+    }
+  }
+
+  // A morning login per operator that verified that day.
+  const byDay = new Map<string, Set<string>>();
+  for (const log of logs) {
+    const day = new Date(log.timestamp).toDateString();
+    if (!byDay.has(day)) byDay.set(day, new Set());
+    byDay.get(day)!.add(log.employeeId);
+  }
+  for (const [day, actors] of byDay) {
+    for (const actor of actors) {
+      const d = new Date(day);
+      d.setHours(7, Math.floor(rand(30, 59)), Math.floor(rand(0, 60)), 0);
+      events.push(mkEvent({ ts: d.getTime(), kind: "login", actor }));
+    }
+  }
+
+  events.sort((x, y) => y.ts - x.ts);
+
+  return { logs, events };
 }

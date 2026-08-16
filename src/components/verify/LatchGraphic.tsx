@@ -1,8 +1,8 @@
-import type { LockStatus } from "@/types";
+import type { LockStatus, SideKey } from "@/types";
 
 interface Props {
   status?: LockStatus;
-  side: "A" | "B";
+  side: SideKey;
   className?: string;
 }
 

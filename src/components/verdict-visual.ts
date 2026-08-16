@@ -26,7 +26,7 @@ export const VERDICT_VISUAL: Record<Verdict, VerdictVisual> = {
     text: "text-pass",
     badge: "pass",
     color: "var(--pass)",
-    labelTh: "ผ่าน — ล็อกครบทั้งสองด้าน",
+    labelTh: "ผ่าน — ล็อกครบทั้ง 4 ด้าน",
   },
   Fail: {
     icon: CircleX,

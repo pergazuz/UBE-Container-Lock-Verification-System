@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PencilLine, ShieldCheck } from "lucide-react";
+import { PencilLine, ShieldCheck, Wrench } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,18 +8,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SideStatus } from "@/components/verify/SideStatus";
 import { LatchGraphic } from "@/components/verify/LatchGraphic";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { OverrideDialog } from "@/components/verify/OverrideDialog";
 import { useLogStore } from "@/data/store";
-import { employeeName, stationName } from "@/data/constants";
+import { userName } from "@/data/auth";
+import { stationName } from "@/data/constants";
 import { formatConfidence, formatDateTime } from "@/lib/format";
 import {
+  SIDE_KEYS,
   effectiveVerdict,
   type LockStatus,
   type Override,
+  type SideKey,
   type VerificationLog,
 } from "@/types";
 
@@ -42,42 +46,51 @@ export function LogDetailDialog({ log, onOpenChange }: Props) {
   return (
     <>
       <Dialog open={Boolean(log)} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <DialogTitle>รายละเอียดการตรวจสอบ</DialogTitle>
               <VerdictBadge verdict={finalVerdict} />
+              {log.attempt === "rework" && (
+                <Badge variant="uncertain" className="gap-1 px-1.5 py-0 text-[10px]">
+                  <Wrench className="size-2.5" /> Rework
+                </Badge>
+              )}
             </div>
             <DialogDescription className="font-mono text-xs">
-              {log.id} · {formatDateTime(log.timestamp)} น.
+              ตู้ {log.containerId} · {log.id} · {formatDateTime(log.timestamp)} น.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
-            {/* Frames — one per side camera */}
+            {/* Frames — one per side camera (A–D) */}
             <div className="grid grid-cols-2 gap-3">
-              <FramePreview
-                side="A"
-                src={log.imageA}
-                status={log.result.sideA.status}
-              />
-              <FramePreview
-                side="B"
-                src={log.imageB}
-                status={log.result.sideB.status}
-              />
+              {SIDE_KEYS.map((k) => (
+                <FramePreview
+                  key={k}
+                  side={k}
+                  src={log.images?.[k]}
+                  status={log.result.sides[k].status}
+                />
+              ))}
             </div>
 
             {/* Sides */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <SideStatus side="A" result={log.result.sideA} />
-              <SideStatus side="B" result={log.result.sideB} />
+              {SIDE_KEYS.map((k) => (
+                <SideStatus key={k} side={k} result={log.result.sides[k]} />
+              ))}
             </div>
 
             {/* Meta grid */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border bg-secondary/30 p-3 text-sm sm:grid-cols-3">
+              <Meta label="ตู้ (Container)" value={log.containerId} mono />
+              <Meta
+                label="ประเภทงาน"
+                value={log.attempt === "rework" ? "งานแก้ไข (Rework)" : "งานใหม่ (Initial)"}
+              />
               <Meta label="สถานี" value={stationName(log.stationId)} />
-              <Meta label="ผู้ตรวจ" value={employeeName(log.employeeId)} />
+              <Meta label="ผู้ตรวจ" value={userName(log.employeeId)} />
               <Meta
                 label="Model Verdict"
                 value={`${log.result.overall} · ${formatConfidence(log.result.confidence)}`}
@@ -92,7 +105,7 @@ export function LogDetailDialog({ log, onOpenChange }: Props) {
                   <span className="font-mono font-semibold">
                     {log.override.overriddenVerdict}
                   </span>{" "}
-                  โดย {employeeName(log.override.supervisorId)}
+                  โดย {userName(log.override.supervisorId)}
                   {log.override.note ? ` · “${log.override.note}”` : ""}
                 </span>
               </div>
@@ -124,7 +137,7 @@ function FramePreview({
   src,
   status,
 }: {
-  side: "A" | "B";
+  side: SideKey;
   src?: string;
   status: LockStatus;
 }) {
@@ -152,13 +165,23 @@ function FramePreview({
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="min-w-0">
       <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="truncate text-sm text-foreground/90">{value}</div>
+      <div className={`truncate text-sm text-foreground/90 ${mono ? "font-mono" : ""}`}>
+        {value}
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   CircleCheckBig,
   CircleX,
   ShieldCheck,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { effectiveVerdict, type VerificationLog } from "@/types";
@@ -32,6 +33,7 @@ export function StatsCards({ logs }: { logs: VerificationLog[] }) {
   const todayCount = today.length;
   const todayPass = today.filter((l) => effectiveVerdict(l) === "Pass").length;
   const todayFail = today.filter((l) => effectiveVerdict(l) === "Fail").length;
+  const todayRework = today.filter((l) => l.attempt === "rework").length;
   const overrides = logs.filter((l) => l.override).length;
   const passRate = todayCount ? Math.round((todayPass / todayCount) * 100) : 0;
 
@@ -59,6 +61,13 @@ export function StatsCards({ logs }: { logs: VerificationLog[] }) {
       color: "var(--fail)",
     },
     {
+      label: "งานแก้ไขวันนี้ · Rework",
+      sub: "Re-scan of failed IDs",
+      value: String(todayRework),
+      icon: Wrench,
+      color: "var(--uncertain)",
+    },
+    {
       label: "แก้ไขโดยหัวหน้า",
       sub: "Overrides (all time)",
       value: String(overrides),
@@ -68,7 +77,7 @@ export function StatsCards({ logs }: { logs: VerificationLog[] }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {stats.map((s) => (
         <StatCard key={s.label} stat={s} />
       ))}

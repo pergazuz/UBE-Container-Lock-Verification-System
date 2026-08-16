@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Download, RotateCcw, Inbox, ShieldCheck } from "lucide-react";
+import { Search, Download, RotateCcw, Inbox, ShieldCheck, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,30 @@ import { LogDetailDialog } from "./LogDetailDialog";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { Badge } from "@/components/ui/badge";
 import { useLogStore } from "@/data/store";
-import { STATIONS, employeeName, stationName } from "@/data/constants";
+import { useAuth, userName } from "@/data/auth";
+import { STATIONS, stationName } from "@/data/constants";
 import { logsToCsv, downloadCsv } from "@/lib/csv";
 import { formatDate, formatTime, lockStatusLabel, toDateInputValue } from "@/lib/format";
-import { effectiveVerdict, type VerificationLog, type Verdict } from "@/types";
+import {
+  SIDE_KEYS,
+  effectiveVerdict,
+  type AttemptType,
+  type LockStatus,
+  type VerificationLog,
+  type Verdict,
+} from "@/types";
 import { LOCK_VISUAL } from "@/components/verdict-visual";
 import { cn } from "@/lib/utils";
 
 type VerdictFilter = "all" | Verdict;
+type AttemptFilter = "all" | AttemptType;
 
 export function HistoryView() {
   const { logs, resetToSeed } = useLogStore();
+  const { currentUser } = useAuth();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<VerdictFilter>("all");
+  const [attempt, setAttempt] = useState<AttemptFilter>("all");
   const [station, setStation] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -38,20 +49,23 @@ export function HistoryView() {
     const q = query.trim().toLowerCase();
     return logs.filter((log) => {
       if (verdict !== "all" && effectiveVerdict(log) !== verdict) return false;
+      if (attempt !== "all" && log.attempt !== attempt) return false;
       if (station !== "all" && log.stationId !== station) return false;
       if (dateFrom && toDateInputValue(log.timestamp) < dateFrom) return false;
       if (dateTo && toDateInputValue(log.timestamp) > dateTo) return false;
       if (q) {
-        const hay = `${log.id} ${log.employeeId} ${employeeName(log.employeeId)} ${log.stationId}`.toLowerCase();
+        const hay =
+          `${log.id} ${log.containerId} ${log.employeeId} ${userName(log.employeeId)} ${log.stationId}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [logs, query, verdict, station, dateFrom, dateTo]);
+  }, [logs, query, verdict, attempt, station, dateFrom, dateTo]);
 
   const hasFilters =
     Boolean(query) ||
     verdict !== "all" ||
+    attempt !== "all" ||
     station !== "all" ||
     Boolean(dateFrom) ||
     Boolean(dateTo);
@@ -59,6 +73,7 @@ export function HistoryView() {
   function clearFilters() {
     setQuery("");
     setVerdict("all");
+    setAttempt("all");
     setStation("all");
     setDateFrom("");
     setDateTo("");
@@ -77,24 +92,24 @@ export function HistoryView() {
 
       {/* Filter bar */}
       <div className="rounded-xl border border-border bg-card/40 p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหา ID / พนักงาน / สถานี…"
+              placeholder="ค้นหา Container ID / รายการ / พนักงาน / สถานี…"
               className="pl-9"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-end">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 xl:flex xl:items-end">
             <FilterField label="ผลลัพธ์">
               <Select
                 value={verdict}
                 onValueChange={(v) => setVerdict(v as VerdictFilter)}
               >
-                <SelectTrigger className="w-full lg:w-[130px]">
+                <SelectTrigger className="w-full xl:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -106,9 +121,25 @@ export function HistoryView() {
               </Select>
             </FilterField>
 
+            <FilterField label="ประเภทงาน">
+              <Select
+                value={attempt}
+                onValueChange={(v) => setAttempt(v as AttemptFilter)}
+              >
+                <SelectTrigger className="w-full xl:w-[130px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="initial">งานใหม่</SelectItem>
+                  <SelectItem value="rework">Rework</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterField>
+
             <FilterField label="สถานี">
               <Select value={station} onValueChange={setStation}>
-                <SelectTrigger className="w-full lg:w-[150px]">
+                <SelectTrigger className="w-full xl:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -128,7 +159,7 @@ export function HistoryView() {
                 max={dateTo || undefined}
                 onChange={setDateFrom}
                 placeholder="ตั้งแต่วันที่"
-                className="w-full lg:w-[160px]"
+                className="w-full xl:w-[150px]"
               />
             </FilterField>
 
@@ -138,7 +169,7 @@ export function HistoryView() {
                 min={dateFrom || undefined}
                 onChange={setDateTo}
                 placeholder="ถึงวันที่"
-                className="w-full lg:w-[160px]"
+                className="w-full xl:w-[150px]"
               />
             </FilterField>
           </div>
@@ -165,7 +196,7 @@ export function HistoryView() {
               variant="ghost"
               size="sm"
               className="h-8 text-xs text-muted-foreground"
-              onClick={resetToSeed}
+              onClick={() => resetToSeed(currentUser?.id)}
               title="สร้างข้อมูลตัวอย่างใหม่ (POC)"
             >
               <RotateCcw className="size-3.5" /> รีเซ็ตข้อมูลตัวอย่าง
@@ -221,14 +252,15 @@ function LogTable({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card/40 panel-glow">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-secondary/40 text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Frame</th>
+              <th className="px-4 py-3 font-medium">Frames</th>
+              <th className="px-4 py-3 font-medium">ตู้ (Container)</th>
               <th className="px-4 py-3 font-medium">วันที่ / เวลา</th>
               <th className="px-4 py-3 font-medium">สถานี</th>
               <th className="px-4 py-3 font-medium">ผู้ตรวจ</th>
-              <th className="px-4 py-3 font-medium">ด้าน A / B</th>
+              <th className="px-4 py-3 font-medium">ด้าน A–D</th>
               <th className="px-4 py-3 font-medium">ผล</th>
             </tr>
           </thead>
@@ -257,10 +289,26 @@ function LogRow({
       className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-secondary/30"
     >
       <td className="px-4 py-2.5">
-        <div className="flex gap-1">
-          <LogThumbnail src={log.imageA} label="A" className="h-10 w-12" />
-          <LogThumbnail src={log.imageB} label="B" className="h-10 w-12" />
+        <div className="grid w-[76px] grid-cols-2 gap-0.5">
+          {SIDE_KEYS.map((k) => (
+            <LogThumbnail
+              key={k}
+              src={log.images?.[k]}
+              label={k}
+              className="h-7 w-9"
+            />
+          ))}
         </div>
+      </td>
+      <td className="px-4 py-2.5">
+        <div className="font-mono text-xs font-semibold text-foreground">
+          {log.containerId}
+        </div>
+        {log.attempt === "rework" && (
+          <Badge variant="uncertain" className="mt-1 gap-1 px-1.5 py-0 text-[10px]">
+            <Wrench className="size-2.5" /> Rework
+          </Badge>
+        )}
       </td>
       <td className="px-4 py-2.5">
         <div className="text-foreground/90">{formatDate(log.timestamp)}</div>
@@ -275,15 +323,16 @@ function LogRow({
         </div>
       </td>
       <td className="px-4 py-2.5">
-        <div className="text-foreground/90">{employeeName(log.employeeId)}</div>
+        <div className="text-foreground/90">{userName(log.employeeId)}</div>
         <div className="font-mono text-[11px] text-muted-foreground">
           {log.employeeId}
         </div>
       </td>
       <td className="px-4 py-2.5">
-        <div className="flex flex-col gap-1">
-          <SideChip side="A" status={log.result.sideA.status} />
-          <SideChip side="B" status={log.result.sideB.status} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          {SIDE_KEYS.map((k) => (
+            <SideChip key={k} side={k} status={log.result.sides[k].status} />
+          ))}
         </div>
       </td>
       <td className="px-4 py-2.5">
@@ -300,13 +349,7 @@ function LogRow({
   );
 }
 
-function SideChip({
-  side,
-  status,
-}: {
-  side: string;
-  status: VerificationLog["result"]["sideA"]["status"];
-}) {
+function SideChip({ side, status }: { side: string; status: LockStatus }) {
   const v = LOCK_VISUAL[status];
   const Icon = v.icon;
   return (

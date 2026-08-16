@@ -1,18 +1,27 @@
 // ---------------------------------------------------------------------------
 // Domain types for the UBE Container Lock Verification System.
 // These are shared between the (currently mocked) verification layer, the log
-// store, and the UI. When a real backend/vision model is wired in later, the
-// same shapes should be returned so the UI needs no changes.
+// store, the event/audit log, the user accounts, and the UI. When a real
+// backend/vision model is wired in later, the same shapes should be returned
+// so the UI needs no changes.
 // ---------------------------------------------------------------------------
 
 /** Per-side lock classification. Kept in English per UI spec (technical terms). */
 export type LockStatus = "Locked" | "Unlocked" | "NotVisible";
 
-/** Which physical side of the container. */
-export type SideKey = "A" | "B";
+/** Which latch point of the container. The station has FOUR cameras (A–D). */
+export type SideKey = "A" | "B" | "C" | "D";
+
+export const SIDE_KEYS: readonly SideKey[] = ["A", "B", "C", "D"] as const;
 
 /** Overall verdict for a single verification. */
 export type Verdict = "Pass" | "Fail" | "Uncertain";
+
+/**
+ * Whether this verification is the container's first check or a re-check of a
+ * container whose latest result was not Pass (scanned again after fixing).
+ */
+export type AttemptType = "initial" | "rework";
 
 export interface SideResult {
   status: LockStatus;
@@ -20,12 +29,14 @@ export interface SideResult {
   confidence: number;
 }
 
+/** One captured frame per side camera, as data URLs. */
+export type SideImages = Partial<Record<SideKey, string>>;
+
 /** The raw prediction returned by verifyContainer(). */
 export interface VerificationResult {
-  sideA: SideResult;
-  sideB: SideResult;
+  sides: Record<SideKey, SideResult>;
   overall: Verdict;
-  /** Overall confidence 0..1 (min across visible sides). */
+  /** Overall confidence 0..1 (min across sides). */
   confidence: number;
   /** Whether a container was detected in the marked zone at all. */
   containerPresent: boolean;
@@ -34,16 +45,16 @@ export interface VerificationResult {
 }
 
 /**
- * Context passed into a verification. The station has TWO cameras — one aimed
- * at each side's latch — so each side has its own captured frame.
+ * Context passed into a verification. The container ID comes from the
+ * mandatory QR scan; each of the four cameras contributes one frame.
  */
 export interface VerifyInput {
+  /** Scanned QR code — the container's ID (mandatory, primary key). */
+  containerId: string;
   stationId: string;
   employeeId: string;
-  /** Data URL of the frame from the Side A camera, if captured/uploaded. */
-  imageA?: string;
-  /** Data URL of the frame from the Side B camera, if captured/uploaded. */
-  imageB?: string;
+  attempt: AttemptType;
+  images?: SideImages;
   /** Optional override for the Uncertain threshold (from settings). */
   confidenceThreshold?: number;
 }
@@ -59,12 +70,14 @@ export interface Override {
 /** One persisted verification event (prediction + context + optional override). */
 export interface VerificationLog {
   id: string;
+  /** Scanned QR — groups attempts on the same physical container. */
+  containerId: string;
+  attempt: AttemptType;
   timestamp: number;
   stationId: string;
   employeeId: string;
   /** Captured frame from each side's camera. */
-  imageA?: string;
-  imageB?: string;
+  images?: SideImages;
   result: VerificationResult;
   override?: Override;
 }
@@ -72,4 +85,70 @@ export interface VerificationLog {
 /** The effective verdict = override if present, else the model verdict. */
 export function effectiveVerdict(log: VerificationLog): Verdict {
   return log.override?.overriddenVerdict ?? log.result.overall;
+}
+
+// ---------------------------------------------------------------------------
+// User accounts (POC: stored in localStorage; production would use an auth
+// service — see pipe_counting's ls_backend for the reference layout).
+// ---------------------------------------------------------------------------
+
+export type Role = "operator" | "supervisor";
+
+export interface UserAccount {
+  /** Stable employee id (EMP-…/SUP-…) referenced by logs and events. */
+  id: string;
+  /** Login name, lowercase. */
+  username: string;
+  /** Display name (Thai). */
+  name: string;
+  role: Role;
+  /** SHA-256 hex of the password (POC-grade; a real backend does argon2id). */
+  passwordHash: string;
+  active: boolean;
+  createdAt: number;
+  lastLoginAt?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Event log (user log): verification events off the line + audit events off
+// the operator, in one chronological record — same idea as pipe_counting.
+// ---------------------------------------------------------------------------
+
+export type EventKind =
+  | "verify_pass"
+  | "verify_fail"
+  | "verify_uncertain"
+  | "override"
+  | "login"
+  | "logout"
+  | "login_failed"
+  | "user_created"
+  | "user_updated"
+  | "settings_changed"
+  | "data_reset";
+
+/** Audit kinds are account/config actions — visible to supervisors only. */
+export const AUDIT_KINDS = new Set<EventKind>([
+  "override",
+  "login",
+  "logout",
+  "login_failed",
+  "user_created",
+  "user_updated",
+  "settings_changed",
+  "data_reset",
+]);
+
+export const isAuditKind = (k: EventKind) => AUDIT_KINDS.has(k);
+
+export interface AppEvent {
+  id: string;
+  ts: number;
+  kind: EventKind;
+  /** User id (EMP-…/SUP-…) that caused the event; attempted username on login_failed. */
+  actor?: string;
+  stationId?: string;
+  containerId?: string;
+  /** Free-text Thai context: the changed fields, reason, verdict, … */
+  detail?: string;
 }

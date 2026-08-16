@@ -1,9 +1,11 @@
-import type {
-  LockStatus,
-  SideResult,
-  VerificationResult,
-  VerifyInput,
-  Verdict,
+import {
+  SIDE_KEYS,
+  type LockStatus,
+  type SideKey,
+  type SideResult,
+  type VerificationResult,
+  type VerifyInput,
+  type Verdict,
 } from "@/types";
 
 // ===========================================================================
@@ -29,7 +31,8 @@ import type {
 //    }
 //
 //  A zero-shot vision API or rule-based latch-angle check would live behind
-//  this same signature.
+//  this same signature. `input.images` carries one frame per side camera
+//  (A–D) and `input.containerId` the scanned QR.
 // ===========================================================================
 
 /** Confidence below this → overall verdict becomes `Uncertain` (manual check). */
@@ -57,13 +60,24 @@ function randBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-/** Mock a single side: mostly Locked, occasionally Unlocked / NotVisible. */
-function mockSide(): SideResult {
-  const status = pickWeighted<LockStatus>([
-    ["Locked", 68],
-    ["Unlocked", 22],
-    ["NotVisible", 10],
-  ]);
+/**
+ * Mock a single side: mostly Locked, occasionally Unlocked / NotVisible.
+ * A rework attempt (operator just fixed the latches) skews heavily to Locked.
+ */
+function mockSide(rework: boolean): SideResult {
+  const status = pickWeighted<LockStatus>(
+    rework
+      ? [
+          ["Locked", 87],
+          ["Unlocked", 9],
+          ["NotVisible", 4],
+        ]
+      : [
+          ["Locked", 74],
+          ["Unlocked", 17],
+          ["NotVisible", 9],
+        ],
+  );
 
   // Confidence bands feel realistic per outcome.
   const confidence =
@@ -81,43 +95,34 @@ function round2(n: number) {
 }
 
 function deriveVerdict(
-  sideA: SideResult,
-  sideB: SideResult,
+  sides: Record<SideKey, SideResult>,
   threshold: number,
 ): { overall: Verdict; confidence: number; reason?: string } {
-  const anyNotVisible =
-    sideA.status === "NotVisible" || sideB.status === "NotVisible";
-  const bothLocked =
-    sideA.status === "Locked" && sideB.status === "Locked";
+  const notVisible = SIDE_KEYS.filter((k) => sides[k].status === "NotVisible");
+  const unlocked = SIDE_KEYS.filter((k) => sides[k].status === "Unlocked");
 
-  // Overall confidence = the weakest visible signal.
-  const confidence = round2(Math.min(sideA.confidence, sideB.confidence));
+  // Overall confidence = the weakest signal across the four cameras.
+  const confidence = round2(
+    Math.min(...SIDE_KEYS.map((k) => sides[k].confidence)),
+  );
 
-  if (anyNotVisible) {
-    const sides = [
-      sideA.status === "NotVisible" ? "A" : null,
-      sideB.status === "NotVisible" ? "B" : null,
-    ].filter(Boolean);
+  if (notVisible.length) {
     return {
       overall: "Fail",
       confidence,
-      reason: `มองไม่เห็นตัวล็อกด้าน ${sides.join(" และ ")} — กรุณาจัดวางคอนเทนเนอร์ใหม่ให้เห็นตัวล็อกทั้งสองด้าน`,
+      reason: `มองไม่เห็นตัวล็อกด้าน ${notVisible.join(" และ ")} — กรุณาจัดวางคอนเทนเนอร์ใหม่ให้เห็นตัวล็อกครบทั้ง 4 ด้าน`,
     };
   }
 
-  if (!bothLocked) {
-    const open = [
-      sideA.status === "Unlocked" ? "A" : null,
-      sideB.status === "Unlocked" ? "B" : null,
-    ].filter(Boolean);
+  if (unlocked.length) {
     return {
       overall: "Fail",
       confidence,
-      reason: `พบตัวล็อกยังไม่ปิดที่ด้าน ${open.join(" และ ")} — กรุณาล็อกให้เรียบร้อยแล้ว Verify อีกครั้ง`,
+      reason: `พบตัวล็อกยังไม่ปิดที่ด้าน ${unlocked.join(" และ ")} — กรุณาล็อกให้เรียบร้อยแล้ว Verify อีกครั้ง`,
     };
   }
 
-  // Both locked, but low confidence → ask for a manual recheck rather than
+  // All locked, but low confidence → ask for a manual recheck rather than
   // returning a possibly-false Pass (per false-positive minimization guidance).
   if (confidence < threshold) {
     return {
@@ -134,10 +139,8 @@ function deriveVerdict(
 export async function verifyContainer(
   input: VerifyInput,
 ): Promise<VerificationResult> {
-  // In the real version, `input.imageA` and `input.imageB` (one frame per
-  // side camera) would each be sent to the model / vision endpoint.
-  void input;
-
+  // In the real version, each frame in `input.images` (one per side camera)
+  // would be sent to the model / vision endpoint along with the container ID.
   await delay(randBetween(MIN_DELAY, MAX_DELAY));
 
   // ~6% of the time no container is detected in the marked zone.
@@ -145,8 +148,7 @@ export async function verifyContainer(
   if (!containerPresent) {
     const empty: SideResult = { status: "NotVisible", confidence: 0.2 };
     return {
-      sideA: empty,
-      sideB: empty,
+      sides: { A: empty, B: empty, C: empty, D: empty },
       overall: "Fail",
       confidence: 0.2,
       containerPresent: false,
@@ -156,9 +158,11 @@ export async function verifyContainer(
   }
 
   const threshold = input.confidenceThreshold ?? CONFIDENCE_THRESHOLD;
-  const sideA = mockSide();
-  const sideB = mockSide();
-  const { overall, confidence, reason } = deriveVerdict(sideA, sideB, threshold);
+  const rework = input.attempt === "rework";
+  const sides = Object.fromEntries(
+    SIDE_KEYS.map((k) => [k, mockSide(rework)]),
+  ) as Record<SideKey, SideResult>;
+  const { overall, confidence, reason } = deriveVerdict(sides, threshold);
 
-  return { sideA, sideB, overall, confidence, containerPresent: true, reason };
+  return { sides, overall, confidence, containerPresent: true, reason };
 }

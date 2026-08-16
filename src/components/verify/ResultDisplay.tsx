@@ -1,13 +1,13 @@
-import { RotateCcw, ShieldCheck, Info, PencilLine } from "lucide-react";
+import { RotateCcw, ShieldCheck, Info, PencilLine, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SideStatus } from "./SideStatus";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { VERDICT_VISUAL } from "@/components/verdict-visual";
-import { effectiveVerdict, type VerificationLog } from "@/types";
+import { SIDE_KEYS, effectiveVerdict, type VerificationLog } from "@/types";
 import { formatConfidence, formatTime, verdictLabel } from "@/lib/format";
-import { employeeName } from "@/data/constants";
+import { userName } from "@/data/auth";
 
 interface Props {
   log: VerificationLog;
@@ -50,6 +50,14 @@ export function ResultDisplay({ log, onOverride, onReset }: Props) {
               {verdictLabel(finalVerdict)}
             </div>
             <p className="mt-1.5 text-sm text-foreground/90">{visual.labelTh}</p>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              ตู้ {log.containerId}
+              {log.attempt === "rework" && (
+                <span className="ml-2 inline-flex items-center gap-1 text-uncertain">
+                  <Wrench className="size-3" /> REWORK
+                </span>
+              )}
+            </p>
           </div>
         </div>
 
@@ -57,7 +65,7 @@ export function ResultDisplay({ log, onOverride, onReset }: Props) {
           <div className="mt-4 flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />
             <span>
-              แก้ไขโดยหัวหน้างาน {employeeName(log.override!.supervisorId)} —
+              แก้ไขโดยหัวหน้างาน {userName(log.override!.supervisorId)} —
               ผลเดิมจากระบบคือ{" "}
               <span className="font-mono font-semibold">
                 {verdictLabel(result.overall)}
@@ -76,10 +84,11 @@ export function ResultDisplay({ log, onOverride, onReset }: Props) {
         </div>
       )}
 
-      {/* ---- Per-side breakdown ---- */}
+      {/* ---- Per-side breakdown (4 cameras) ---- */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <SideStatus side="A" result={result.sideA} delayMs={80} />
-        <SideStatus side="B" result={result.sideB} delayMs={160} />
+        {SIDE_KEYS.map((k, i) => (
+          <SideStatus key={k} side={k} result={result.sides[k]} delayMs={80 * (i + 1)} />
+        ))}
       </div>
 
       {/* ---- Overall confidence ---- */}
@@ -108,13 +117,18 @@ export function ResultDisplay({ log, onOverride, onReset }: Props) {
         <Badge variant={visual.badge} className="px-1.5 py-0 text-[10px]">
           {overridden ? "OVERRIDDEN" : "AUTO"}
         </Badge>
+        {log.attempt === "rework" && (
+          <Badge variant="uncertain" className="px-1.5 py-0 text-[10px]">
+            REWORK
+          </Badge>
+        )}
       </div>
 
       {/* ---- Actions ---- */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button onClick={onReset} className="flex-1" size="lg">
           <RotateCcw />
-          Verify ครั้งใหม่
+          สแกนตู้ถัดไป
         </Button>
         <Button
           onClick={onOverride}

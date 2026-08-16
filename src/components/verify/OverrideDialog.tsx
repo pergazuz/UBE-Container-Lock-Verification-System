@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SUPERVISORS } from "@/data/constants";
+import { useAuth } from "@/data/auth";
 import type { Override, Verdict } from "@/types";
 import { verdictLabel } from "@/lib/format";
 
@@ -39,22 +40,46 @@ export function OverrideDialog({
   currentVerdict,
   onSubmit,
 }: Props) {
-  const [supervisorId, setSupervisorId] = useState(SUPERVISORS[0].id);
+  const { users, currentUser, verifyPassword } = useAuth();
+  const supervisors = useMemo(
+    () => users.filter((u) => u.role === "supervisor" && u.active),
+    [users],
+  );
+  // If a supervisor is signed in, they sign off as themselves by default.
+  const defaultSupervisor =
+    currentUser?.role === "supervisor" ? currentUser.id : supervisors[0]?.id ?? "";
+
+  const [supervisorId, setSupervisorId] = useState(defaultSupervisor);
+  const [password, setPassword] = useState("");
   const [verdict, setVerdict] = useState<Verdict>(
     currentVerdict === "Pass" ? "Fail" : "Pass",
   );
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   // Reset the form each time the dialog opens.
   useEffect(() => {
     if (open) {
-      setSupervisorId(SUPERVISORS[0].id);
+      setSupervisorId(defaultSupervisor);
       setVerdict(currentVerdict === "Pass" ? "Fail" : "Pass");
+      setPassword("");
       setNote("");
+      setError("");
     }
-  }, [open, currentVerdict]);
+  }, [open, currentVerdict, defaultSupervisor]);
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (busy || !supervisorId) return;
+    setBusy(true);
+    setError("");
+    // The override is a supervisor's signature — confirm it with their password.
+    const ok = await verifyPassword(supervisorId, password);
+    setBusy(false);
+    if (!ok) {
+      setError("รหัสผ่านหัวหน้างานไม่ถูกต้อง");
+      return;
+    }
     onSubmit({
       overriddenVerdict: verdict,
       supervisorId,
@@ -75,6 +100,7 @@ export function OverrideDialog({
           <DialogDescription>
             บันทึกการแก้ไขผลโดยหัวหน้างานสำหรับกรณีที่ระบบอ่านผิด
             ข้อมูลนี้จะถูกเก็บแยกไว้เพื่อใช้ปรับปรุงโมเดล (retraining)
+            — ยืนยันตัวตนด้วยรหัสผ่านหัวหน้างาน
           </DialogDescription>
         </DialogHeader>
 
@@ -93,13 +119,28 @@ export function OverrideDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SUPERVISORS.map((s) => (
+                {supervisors.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name} · {s.id}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="sup-password">รหัสผ่านหัวหน้างาน</Label>
+            <div className="relative">
+              <KeyRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="sup-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="off"
+                className="pl-9"
+              />
+            </div>
           </div>
 
           <div className="grid gap-1.5">
@@ -130,13 +171,22 @@ export function OverrideDialog({
               placeholder="เช่น ตรวจสอบด้วยสายตาแล้วล็อกเรียบร้อย"
             />
           </div>
+
+          {error && (
+            <div className="rounded-md border border-fail/40 bg-fail/10 px-3 py-2 text-sm font-medium text-fail">
+              {error}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             ยกเลิก
           </Button>
-          <Button onClick={handleSubmit}>บันทึกการแก้ไข</Button>
+          <Button onClick={handleSubmit} disabled={busy || !password || !supervisorId}>
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            บันทึกการแก้ไข
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

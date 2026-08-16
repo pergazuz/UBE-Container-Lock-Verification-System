@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   SlidersHorizontal,
   Camera,
@@ -32,16 +32,47 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useSettings } from "@/data/settings";
+import { useSettings, type Settings } from "@/data/settings";
 import { useLogStore } from "@/data/store";
+import { useAuth } from "@/data/auth";
 import { CONTAINER_TYPES, STATIONS } from "@/data/constants";
 import { logsToCsv, downloadCsv } from "@/lib/csv";
 import { toDateInputValue } from "@/lib/format";
 
 export function SettingsView() {
   const { settings, update, reset } = useSettings();
-  const { logs, clearAll, resetToSeed } = useLogStore();
+  const { logs, clearAll, resetToSeed, logEvent } = useLogStore();
+  const { currentUser } = useAuth();
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // Collapse rapid changes (e.g. dragging the threshold slider) into one
+  // settings_changed event so the user log stays readable.
+  const pending = useRef(new Map<string, string>());
+  const timer = useRef<number | undefined>(undefined);
+  const flush = useCallback(() => {
+    if (!pending.current.size) return;
+    logEvent({
+      kind: "settings_changed",
+      actor: currentUser?.id,
+      detail: [...pending.current.values()].join(" · "),
+    });
+    pending.current.clear();
+  }, [logEvent, currentUser]);
+
+  useEffect(() => () => {
+    window.clearTimeout(timer.current);
+    flush();
+  }, [flush]);
+
+  const change = useCallback(
+    (patch: Partial<Settings>, field: string, detail: string) => {
+      update(patch);
+      pending.current.set(field, detail);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(flush, 1500);
+    },
+    [update, flush],
+  );
 
   const pct = Math.round(settings.confidenceThreshold * 100);
 
@@ -72,7 +103,11 @@ export function SettingsView() {
               step={1}
               value={pct}
               onChange={(e) =>
-                update({ confidenceThreshold: Number(e.target.value) / 100 })
+                change(
+                  { confidenceThreshold: Number(e.target.value) / 100 },
+                  "threshold",
+                  `เกณฑ์ความมั่นใจ → ${e.target.value}%`,
+                )
               }
               className="h-1.5 flex-1 cursor-pointer accent-primary"
             />
@@ -90,7 +125,9 @@ export function SettingsView() {
         >
           <Select
             value={settings.containerType}
-            onValueChange={(v) => update({ containerType: v })}
+            onValueChange={(v) =>
+              change({ containerType: v }, "containerType", `ชนิดคอนเทนเนอร์ → ${v}`)
+            }
           >
             <SelectTrigger className="w-full sm:w-72">
               <SelectValue />
@@ -120,7 +157,13 @@ export function SettingsView() {
             <Volume2 className="size-4 text-muted-foreground" />
             <Switch
               checked={settings.soundOnResult}
-              onCheckedChange={(v) => update({ soundOnResult: v })}
+              onCheckedChange={(v) =>
+                change(
+                  { soundOnResult: v },
+                  "sound",
+                  `เสียงแจ้งผล → ${v ? "เปิด" : "ปิด"}`,
+                )
+              }
             />
           </div>
         </Row>
@@ -145,10 +188,10 @@ export function SettingsView() {
                 </div>
                 <div className="mt-2 flex items-center gap-1.5">
                   <Badge variant="hazard" className="px-1.5 py-0 text-[10px]">
-                    2 CAM
+                    4 CAM
                   </Badge>
                   <span className="text-[10px] text-muted-foreground">
-                    A + B
+                    A · B · C · D
                   </span>
                 </div>
               </div>
@@ -181,7 +224,11 @@ export function SettingsView() {
             >
               <Download /> ส่งออกทั้งหมด (CSV)
             </Button>
-            <Button variant="secondary" size="sm" onClick={resetToSeed}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => resetToSeed(currentUser?.id)}
+            >
               <RotateCcw /> รีเซ็ตข้อมูลตัวอย่าง
             </Button>
             <Button
@@ -201,7 +248,18 @@ export function SettingsView() {
           label="รีเซ็ตการตั้งค่า"
           hint="คืนค่าการตั้งค่าทั้งหมดกลับเป็นค่าเริ่มต้น"
         >
-          <Button variant="outline" size="sm" onClick={reset}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              reset();
+              logEvent({
+                kind: "settings_changed",
+                actor: currentUser?.id,
+                detail: "คืนค่าการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
+              });
+            }}
+          >
             <RotateCcw /> คืนค่าเริ่มต้น
           </Button>
         </Row>
@@ -238,7 +296,7 @@ export function SettingsView() {
             <Button
               variant="destructive"
               onClick={() => {
-                clearAll();
+                clearAll(currentUser?.id);
                 setConfirmClear(false);
               }}
             >

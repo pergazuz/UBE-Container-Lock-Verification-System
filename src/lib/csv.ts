@@ -1,5 +1,6 @@
-import type { VerificationLog } from "@/types";
-import { effectiveVerdict } from "@/types";
+import { SIDE_KEYS, effectiveVerdict, isAuditKind } from "@/types";
+import type { AppEvent, VerificationLog } from "@/types";
+import { userName } from "@/data/auth";
 import { formatDate, formatTime } from "./format";
 
 function esc(value: string | number): string {
@@ -10,16 +11,15 @@ function esc(value: string | number): string {
   return s;
 }
 
-const HEADERS = [
+const LOG_HEADERS = [
   "ID",
+  "Container ID",
+  "Attempt",
   "Date",
   "Time",
   "Station",
   "Employee",
-  "Side A",
-  "Side A Confidence",
-  "Side B",
-  "Side B Confidence",
+  ...SIDE_KEYS.flatMap((k) => [`Side ${k}`, `Side ${k} Confidence`]),
   "Model Verdict",
   "Model Confidence",
   "Final Verdict",
@@ -33,14 +33,13 @@ export function logsToCsv(logs: VerificationLog[]): string {
     const r = log.result;
     return [
       log.id,
+      log.containerId,
+      log.attempt === "rework" ? "Rework" : "Initial",
       formatDate(log.timestamp),
       formatTime(log.timestamp),
       log.stationId,
       log.employeeId,
-      r.sideA.status,
-      r.sideA.confidence,
-      r.sideB.status,
-      r.sideB.confidence,
+      ...SIDE_KEYS.flatMap((k) => [r.sides[k].status, r.sides[k].confidence]),
       r.overall,
       r.confidence,
       effectiveVerdict(log),
@@ -52,7 +51,40 @@ export function logsToCsv(logs: VerificationLog[]): string {
       .join(",");
   });
   // BOM so Excel opens the Thai columns/labels in UTF-8 correctly.
-  return "﻿" + [HEADERS.join(","), ...rows].join("\r\n");
+  return "﻿" + [LOG_HEADERS.join(","), ...rows].join("\r\n");
+}
+
+const EVENT_HEADERS = [
+  "ID",
+  "Date",
+  "Time",
+  "Event",
+  "Audit",
+  "Actor ID",
+  "Actor Name",
+  "Station",
+  "Container ID",
+  "Detail",
+];
+
+export function eventsToCsv(events: AppEvent[]): string {
+  const rows = events.map((e) =>
+    [
+      e.id,
+      formatDate(e.ts),
+      formatTime(e.ts),
+      e.kind,
+      isAuditKind(e.kind) ? "yes" : "no",
+      e.actor ?? "",
+      e.actor ? userName(e.actor) : "",
+      e.stationId ?? "",
+      e.containerId ?? "",
+      e.detail ?? "",
+    ]
+      .map(esc)
+      .join(","),
+  );
+  return "﻿" + [EVENT_HEADERS.join(","), ...rows].join("\r\n");
 }
 
 export function downloadCsv(filename: string, csv: string) {

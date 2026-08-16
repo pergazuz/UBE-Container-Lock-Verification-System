@@ -1,5 +1,6 @@
 // Static reference data for the POC. In production these would come from an
-// auth/session service and a stations registry.
+// auth/session service and a stations registry. The people below are the seed
+// accounts for the user table (see data/auth.tsx for their logins).
 
 export interface Employee {
   id: string;
@@ -18,13 +19,13 @@ export const STATIONS = [
  * selector is here so more variants can be added later without a rebuild.
  */
 export const CONTAINER_TYPES = [
-  { id: "UBE-STD-01", name: "คอนเทนเนอร์มาตรฐาน · Standard tote (2 latch)" },
+  { id: "UBE-STD-01", name: "คอนเทนเนอร์มาตรฐาน · Standard tote (4 latch)" },
 ] as const;
 
 /**
- * Sample footage used as the station's camera feed for the POC (served from
- * public/videos). Each Verify Station camera plays one of these on loop, and
- * the current frame is captured when the operator taps Verify.
+ * Sample footage used as the stations' camera feeds for the POC (served from
+ * public/videos). Each of the four Verify Station cameras plays one of these
+ * on loop, and the current frame is captured when the operator taps Verify.
  */
 const SAMPLE_VIDEO_FILES = [
   "11a31738-3618-4d40-bf04-073dc11feb12.mp4",
@@ -48,10 +49,6 @@ export const EMPLOYEES: Employee[] = [
 ];
 
 export const SUPERVISORS = EMPLOYEES.filter((e) => e.role === "supervisor");
-
-export function employeeName(id: string): string {
-  return EMPLOYEES.find((e) => e.id === id)?.name ?? id;
-}
 
 export function stationName(id: string): string {
   return STATIONS.find((s) => s.id === id)?.name ?? id;

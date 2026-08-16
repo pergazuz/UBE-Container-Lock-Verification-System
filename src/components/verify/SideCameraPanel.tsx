@@ -1,6 +1,5 @@
-import { type RefObject } from "react";
 import { ScanLine, RefreshCw } from "lucide-react";
-import type { LockStatus } from "@/types";
+import type { LockStatus, SideKey } from "@/types";
 import { LOCK_VISUAL } from "@/components/verdict-visual";
 import { lockStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -8,8 +7,9 @@ import { cn } from "@/lib/utils";
 export type Phase = "idle" | "verifying" | "result";
 
 interface Props {
-  side: "A" | "B";
-  videoRef: RefObject<HTMLVideoElement | null>;
+  side: SideKey;
+  /** Callback ref — the station keeps one <video> element per side. */
+  videoRef: (el: HTMLVideoElement | null) => void;
   videoSrc: string;
   phase: Phase;
   /** Per-side result status once verified (drives tint + status pill). */
