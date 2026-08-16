@@ -118,16 +118,17 @@ export function LogDetailDialog({ log, onOpenChange }: Props) {
               {log.override ? "แก้ไขผลอีกครั้ง" : "แก้ไขผล (Supervisor Override)"}
             </Button>
           </div>
+
+
+          <OverrideDialog
+            open={overrideOpen}
+            onOpenChange={setOverrideOpen}
+            modelVerdict={log.result.overall}
+            currentVerdict={finalVerdict}
+            onSubmit={handleOverride}
+          />
         </DialogContent>
       </Dialog>
-
-      <OverrideDialog
-        open={overrideOpen}
-        onOpenChange={setOverrideOpen}
-        modelVerdict={log.result.overall}
-        currentVerdict={finalVerdict}
-        onSubmit={handleOverride}
-      />
     </>
   );
 }

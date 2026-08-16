@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,11 +45,13 @@ export function OverrideDialog({
     () => users.filter((u) => u.role === "supervisor" && u.active),
     [users],
   );
-  // If a supervisor is signed in, they sign off as themselves by default.
-  const defaultSupervisor =
-    currentUser?.role === "supervisor" ? currentUser.id : supervisors[0]?.id ?? "";
 
-  const [supervisorId, setSupervisorId] = useState(defaultSupervisor);
+  // A signed-in supervisor already proved who they are at login — they sign
+  // the override as themselves with no password re-entry. An operator needs a
+  // supervisor to authorize on the spot (pick account + password).
+  const isSupervisor = currentUser?.role === "supervisor";
+
+  const [supervisorId, setSupervisorId] = useState(supervisors[0]?.id ?? "");
   const [password, setPassword] = useState("");
   const [verdict, setVerdict] = useState<Verdict>(
     currentVerdict === "Pass" ? "Fail" : "Pass",
@@ -61,28 +63,31 @@ export function OverrideDialog({
   // Reset the form each time the dialog opens.
   useEffect(() => {
     if (open) {
-      setSupervisorId(defaultSupervisor);
+      setSupervisorId(supervisors[0]?.id ?? "");
       setVerdict(currentVerdict === "Pass" ? "Fail" : "Pass");
       setPassword("");
       setNote("");
       setError("");
     }
-  }, [open, currentVerdict, defaultSupervisor]);
+  }, [open, currentVerdict, supervisors]);
 
   async function handleSubmit() {
-    if (busy || !supervisorId) return;
-    setBusy(true);
-    setError("");
-    // The override is a supervisor's signature — confirm it with their password.
-    const ok = await verifyPassword(supervisorId, password);
-    setBusy(false);
-    if (!ok) {
-      setError("รหัสผ่านหัวหน้างานไม่ถูกต้อง");
-      return;
+    if (busy) return;
+    const signerId = isSupervisor ? currentUser!.id : supervisorId;
+    if (!signerId) return;
+    if (!isSupervisor) {
+      setBusy(true);
+      setError("");
+      const ok = await verifyPassword(supervisorId, password);
+      setBusy(false);
+      if (!ok) {
+        setError("รหัสผ่านหัวหน้างานไม่ถูกต้อง");
+        return;
+      }
     }
     onSubmit({
       overriddenVerdict: verdict,
-      supervisorId,
+      supervisorId: signerId,
       note: note.trim() || undefined,
       at: Date.now(),
     });
@@ -100,7 +105,9 @@ export function OverrideDialog({
           <DialogDescription>
             บันทึกการแก้ไขผลโดยหัวหน้างานสำหรับกรณีที่ระบบอ่านผิด
             ข้อมูลนี้จะถูกเก็บแยกไว้เพื่อใช้ปรับปรุงโมเดล (retraining)
-            — ยืนยันตัวตนด้วยรหัสผ่านหัวหน้างาน
+            {isSupervisor
+              ? " — ลงชื่อด้วยบัญชีที่เข้าสู่ระบบอยู่"
+              : " — ต้องให้หัวหน้างานยืนยันด้วยรหัสผ่าน"}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,36 +119,56 @@ export function OverrideDialog({
             </span>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="supervisor">หัวหน้างาน (Supervisor)</Label>
-            <Select value={supervisorId} onValueChange={setSupervisorId}>
-              <SelectTrigger id="supervisor">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {supervisors.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name} · {s.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="sup-password">รหัสผ่านหัวหน้างาน</Label>
-            <div className="relative">
-              <KeyRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="sup-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="off"
-                className="pl-9"
-              />
+          {isSupervisor ? (
+            // Signed-in supervisor: identity comes from the session.
+            <div className="flex items-center gap-2.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2.5">
+              <UserCheck className="size-4 shrink-0 text-primary" />
+              <div className="min-w-0 text-sm">
+                <span className="font-medium text-foreground">
+                  ลงชื่อแก้ไขโดย {currentUser!.name}
+                </span>{" "}
+                <span className="font-mono text-xs text-muted-foreground">
+                  ({currentUser!.id})
+                </span>
+                <div className="text-[11px] text-muted-foreground">
+                  เข้าสู่ระบบในฐานะหัวหน้างานแล้ว — ไม่ต้องกรอกรหัสผ่านซ้ำ
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid gap-1.5">
+                <Label htmlFor="supervisor">หัวหน้างาน (Supervisor)</Label>
+                <Select value={supervisorId} onValueChange={setSupervisorId}>
+                  <SelectTrigger id="supervisor">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {supervisors.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} · {s.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="sup-password">รหัสผ่านหัวหน้างาน</Label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="sup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="off"
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="grid gap-1.5">
             <Label htmlFor="verdict">ผลที่แก้ไขเป็น</Label>
@@ -183,7 +210,12 @@ export function OverrideDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             ยกเลิก
           </Button>
-          <Button onClick={handleSubmit} disabled={busy || !password || !supervisorId}>
+          <Button
+            onClick={handleSubmit}
+            disabled={
+              busy || (isSupervisor ? false : !password || !supervisorId)
+            }
+          >
             {busy && <Loader2 className="size-4 animate-spin" />}
             บันทึกการแก้ไข
           </Button>

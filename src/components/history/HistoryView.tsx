@@ -43,7 +43,11 @@ export function HistoryView() {
   const [station, setStation] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selected, setSelected] = useState<VerificationLog | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = useMemo(
+    () => (selectedId ? logs.find((l) => l.id === selectedId) ?? null : null),
+    [logs, selectedId],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -217,10 +221,10 @@ export function HistoryView() {
       {filtered.length === 0 ? (
         <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
       ) : (
-        <LogTable logs={filtered} onSelect={setSelected} />
+        <LogTable logs={filtered} onSelect={(log) => setSelectedId(log.id)} />
       )}
 
-      <LogDetailDialog log={selected} onOpenChange={(o) => !o && setSelected(null)} />
+      <LogDetailDialog log={selected} onOpenChange={(o) => !o && setSelectedId(null)} />
     </div>
   );
 }
