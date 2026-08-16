@@ -16,7 +16,7 @@ import { LogDetailDialog } from "./LogDetailDialog";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { Badge } from "@/components/ui/badge";
 import { useLogStore } from "@/data/store";
-import { useAuth, userName } from "@/data/auth";
+import { userName } from "@/data/auth";
 import { STATIONS, stationName } from "@/data/constants";
 import { exportLogsExcel } from "@/lib/excel";
 import { formatDate, formatTime, lockStatusLabel, toDateInputValue } from "@/lib/format";
@@ -35,8 +35,7 @@ type VerdictFilter = "all" | Verdict;
 type AttemptFilter = "all" | AttemptType;
 
 export function HistoryView() {
-  const { logs, resetToSeed } = useLogStore();
-  const { currentUser } = useAuth();
+  const { logs } = useLogStore();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<VerdictFilter>("all");
   const [attempt, setAttempt] = useState<AttemptFilter>("all");
@@ -192,25 +191,14 @@ export function HistoryView() {
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs text-muted-foreground"
-              onClick={() => resetToSeed(currentUser?.id)}
-              title="สร้างข้อมูลตัวอย่างใหม่ (POC)"
-            >
-              <RotateCcw className="size-3.5" /> รีเซ็ตข้อมูลตัวอย่าง
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExport}
-              disabled={!filtered.length}
-            >
-              <Download /> ส่งออก Excel
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExport}
+            disabled={!filtered.length}
+          >
+            <Download /> ส่งออก Excel
+          </Button>
         </div>
       </div>
 
