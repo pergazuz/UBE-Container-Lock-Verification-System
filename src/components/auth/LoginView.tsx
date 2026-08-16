@@ -103,21 +103,31 @@ export function LoginView() {
           </Button>
         </form>
 
-        {/* POC seed accounts so the demo is usable on first run */}
+        {/* POC seed accounts — click one to fill the form */}
         <div className="mt-4 rounded-lg border border-border/70 bg-secondary/30 px-4 py-3">
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            บัญชีตัวอย่าง (POC)
+            บัญชีตัวอย่าง (POC) · คลิกเพื่อกรอกอัตโนมัติ
           </div>
-          <div className="flex flex-col gap-1 font-mono text-xs text-foreground/80">
+          <div className="flex flex-col gap-1">
             {SEED_CREDENTIALS.map((c) => (
-              <div key={c.username} className="flex items-center justify-between gap-3">
-                <span>
+              <button
+                key={c.username}
+                type="button"
+                onClick={() => {
+                  setUsername(c.username);
+                  setPassword(c.password);
+                  setError("");
+                }}
+                className="flex items-center justify-between gap-3 rounded-md border border-transparent px-2 py-1.5 text-left font-mono text-xs text-foreground/80 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
+              >
+                <span className="flex items-center gap-1.5">
+                  <LogIn className="size-3 text-primary/70" />
                   {c.username} / {c.password}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
                   {c.role === "supervisor" ? "หัวหน้างาน" : "พนักงาน"}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
