@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/data/session";
 import { useAuth } from "@/data/auth";
+import { useSettings } from "@/data/settings";
 import { STATIONS } from "@/data/constants";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ const NAV = [
 export function Header() {
   const { stationId, setStationId } = useSession();
   const { currentUser, logout } = useAuth();
+  const { settings } = useSettings();
 
   const nav = NAV.filter(
     (item) => !item.supervisorOnly || currentUser?.role === "supervisor",
@@ -96,11 +98,21 @@ export function Header() {
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>สถานี (Station)</SelectLabel>
-                {STATIONS.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.id} · {s.name}
-                  </SelectItem>
-                ))}
+                {STATIONS.map((s) => {
+                  const closed = settings.closedStations.includes(s.id);
+                  return (
+                    // Supervisors may still enter a closed station to inspect
+                    // it; operators can't select it at all.
+                    <SelectItem
+                      key={s.id}
+                      value={s.id}
+                      disabled={closed && currentUser?.role !== "supervisor"}
+                    >
+                      {s.id} · {s.name}
+                      {closed ? " · ปิด" : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectGroup>
             </SelectContent>
           </Select>

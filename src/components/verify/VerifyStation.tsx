@@ -8,6 +8,7 @@ import {
   Wrench,
   X,
   CircleCheckBig,
+  PowerOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,19 +181,25 @@ export function VerifyStation() {
   const statusFor = (k: SideKey) =>
     phase === "result" && log ? log.result.sides[k].status : undefined;
 
-  const ready = Boolean(container) && allEnded;
+  // A supervisor can close a station from Settings; no verification there.
+  const stationClosed = settings.closedStations.includes(stationId);
+  const ready = Boolean(container) && allEnded && !stationClosed;
 
   return (
     <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
       {/* ---- Left: QR scan + quad sample-video cameras + verify ---- */}
       <section className="flex flex-col gap-4">
-        <ScanBar
-          container={container}
-          disabled={phase !== "idle"}
-          logs={logs}
-          onScan={handleScan}
-          onClear={() => setContainer(null)}
-        />
+        {stationClosed ? (
+          <StationClosedBanner stationId={stationId} />
+        ) : (
+          <ScanBar
+            container={container}
+            disabled={phase !== "idle"}
+            logs={logs}
+            onScan={handleScan}
+            onClear={() => setContainer(null)}
+          />
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -237,6 +244,11 @@ export function VerifyStation() {
               <>
                 <Loader2 className="size-5 animate-spin" />
                 กำลังตรวจสอบ… (Verifying)
+              </>
+            ) : stationClosed ? (
+              <>
+                <PowerOff className="size-5" />
+                สถานีถูกปิดใช้งาน (Station closed)
               </>
             ) : !container ? (
               <>
@@ -289,6 +301,29 @@ export function VerifyStation() {
           onSubmit={handleOverrideSubmit}
         />
       )}
+    </div>
+  );
+}
+
+/** Shown in place of the scan bar when a supervisor has closed this station. */
+function StationClosedBanner({ stationId }: { stationId: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-fail/40 bg-fail/10 px-4 py-3">
+      <PowerOff className="size-5 shrink-0 text-fail" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-fail">
+            สถานี {stationId} ถูกปิดใช้งาน
+          </span>
+          <Badge variant="fail" className="px-1.5 py-0 text-[10px]">
+            CLOSED
+          </Badge>
+        </div>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          หัวหน้างานปิดสถานีนี้ไว้ — เลือกสถานีอื่นจากเมนูด้านบน
+          หรือให้หัวหน้างานเปิดสถานีที่หน้า ตั้งค่า › กล้อง & แหล่งภาพ
+        </p>
+      </div>
     </div>
   );
 }

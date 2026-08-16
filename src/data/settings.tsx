@@ -22,12 +22,15 @@ export interface Settings {
   confidenceThreshold: number; // 0..1
   containerType: string;
   soundOnResult: boolean;
+  /** Station ids closed by a supervisor — no verification while closed. */
+  closedStations: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   confidenceThreshold: 0.72,
   containerType: CONTAINER_TYPES[0].id,
   soundOnResult: true,
+  closedStations: [],
 };
 
 interface SettingsStore {
