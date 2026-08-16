@@ -101,13 +101,9 @@ export function Header() {
                 {STATIONS.map((s) => {
                   const closed = settings.closedStations.includes(s.id);
                   return (
-                    // Supervisors may still enter a closed station to inspect
-                    // it; operators can't select it at all.
-                    <SelectItem
-                      key={s.id}
-                      value={s.id}
-                      disabled={closed && currentUser?.role !== "supervisor"}
-                    >
+                    // A closed station can't be entered by anyone — reopen it
+                    // from Settings › Cameras first.
+                    <SelectItem key={s.id} value={s.id} disabled={closed}>
                       {s.id} · {s.name}
                       {closed ? " · ปิด" : ""}
                     </SelectItem>
