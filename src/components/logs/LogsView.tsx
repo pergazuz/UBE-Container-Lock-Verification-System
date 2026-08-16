@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useLogStore } from "@/data/store";
 import { useAuth, userName } from "@/data/auth";
-import { eventsToCsv, downloadCsv } from "@/lib/csv";
+import { exportEventsExcel } from "@/lib/excel";
 import { formatDate, formatTime, toDateInputValue } from "@/lib/format";
 import { isAuditKind, type AppEvent, type EventKind } from "@/types";
 
@@ -180,14 +180,14 @@ export function LogsView() {
             size="sm"
             variant="outline"
             onClick={() =>
-              downloadCsv(
-                `ube-events-${toDateInputValue(Date.now())}.csv`,
-                eventsToCsv(filtered),
+              exportEventsExcel(
+                filtered,
+                `ube-events-${toDateInputValue(Date.now())}.xlsx`,
               )
             }
             disabled={!filtered.length}
           >
-            <Download /> ส่งออก CSV
+            <Download /> ส่งออก Excel
           </Button>
         </div>
       </div>

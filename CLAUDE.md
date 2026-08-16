@@ -61,4 +61,4 @@ Provider nesting in `App.tsx` is ordered by dependency: `SettingsProvider` → `
 - **Theme**: dark industrial "INSTRUMENT" HMI. Tailwind v4 is configured entirely in `src/index.css` (`@theme inline`) — there is no tailwind.config. Semantic signal tokens are `--pass` (green), `--fail` (red), `--uncertain` (amber — also used for rework), `--info`, `--hazard`, exposed as utilities like `text-pass`/`bg-fail`. Use these tokens for verdict/status coloring, not raw palette classes.
 - Verdict/lock-status icon + color mappings are centralized in `src/components/verdict-visual.ts` (`VERDICT_VISUAL`, `LOCK_VISUAL`) — extend there rather than hardcoding per component.
 - Technical readouts (IDs, container IDs, timestamps, confidence values) use `font-mono` (IBM Plex Mono); body copy uses IBM Plex Sans Thai.
-- CSV exports (`src/lib/csv.ts` — logs and events) prepend a UTF-8 BOM so Excel renders Thai correctly — keep it when touching export.
+- Exports are real Excel workbooks (`src/lib/excel.ts` — logs and events, built with SheetJS `xlsx`) so Thai text and columns open correctly regardless of Excel locale.

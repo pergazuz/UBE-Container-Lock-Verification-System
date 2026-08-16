@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLogStore } from "@/data/store";
 import { useAuth, userName } from "@/data/auth";
 import { STATIONS, stationName } from "@/data/constants";
-import { logsToCsv, downloadCsv } from "@/lib/csv";
+import { exportLogsExcel } from "@/lib/excel";
 import { formatDate, formatTime, lockStatusLabel, toDateInputValue } from "@/lib/format";
 import {
   SIDE_KEYS,
@@ -84,10 +84,7 @@ export function HistoryView() {
   }
 
   function handleExport() {
-    downloadCsv(
-      `ube-logs-${toDateInputValue(Date.now())}.csv`,
-      logsToCsv(filtered),
-    );
+    exportLogsExcel(filtered, `ube-logs-${toDateInputValue(Date.now())}.xlsx`);
   }
 
   return (
@@ -211,7 +208,7 @@ export function HistoryView() {
               onClick={handleExport}
               disabled={!filtered.length}
             >
-              <Download /> ส่งออก CSV
+              <Download /> ส่งออก Excel
             </Button>
           </div>
         </div>
