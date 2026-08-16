@@ -2,13 +2,14 @@ import {
   SIDE_KEYS,
   type AppEvent,
   type LockStatus,
+  type SideImages,
   type SideKey,
   type SideResult,
   type VerificationLog,
   type VerificationResult,
   type Verdict,
 } from "@/types";
-import { EMPLOYEES, STATIONS, SUPERVISORS } from "./constants";
+import { EMPLOYEES, SAMPLE_VIDEOS, STATIONS, SUPERVISORS } from "./constants";
 
 // Deterministic-ish demo history so the dashboard isn't empty on first run.
 // (Uses Math.random once at seed time; results are then persisted.)
@@ -61,6 +62,34 @@ function randomStatuses(rework: boolean): Record<SideKey, LockStatus> {
   ) as Record<SideKey, LockStatus>;
 }
 
+const FRAME_BASE = `${import.meta.env.BASE_URL}frames/`;
+const LOCKED_FRAMES = SAMPLE_VIDEOS.filter((v) => v.finalStatus === "Locked").map(
+  (v) => `${FRAME_BASE}f-${v.id}.jpg`,
+);
+const UNLOCKED_FRAMES = SAMPLE_VIDEOS.filter(
+  (v) => v.finalStatus === "Unlocked",
+).map((v) => `${FRAME_BASE}f-${v.id}.jpg`);
+/** Blurred/darkened stills — the camera's view when the latch isn't visible. */
+const OBSCURED_FRAMES = ["3cd8a0f9", "c6f63c2d"].map(
+  (id) => `${FRAME_BASE}nv-${id}.jpg`,
+);
+
+function frameFor(status: LockStatus): string {
+  const pool =
+    status === "Locked"
+      ? LOCKED_FRAMES
+      : status === "Unlocked"
+        ? UNLOCKED_FRAMES
+        : OBSCURED_FRAMES;
+  return pick(pool);
+}
+
+function imagesFor(result: VerificationResult): SideImages {
+  return Object.fromEntries(
+    SIDE_KEYS.map((k) => [k, frameFor(result.sides[k].status)]),
+  ) as SideImages;
+}
+
 /** QR payload used as the container's primary key, e.g. "UBE-7K2FQ9". */
 function mkContainerId(): string {
   let s = "";
@@ -98,6 +127,7 @@ export function generateSeed(now: number): SeedData {
     timestamp,
     stationId,
     employeeId,
+    images: imagesFor(result),
     result,
   });
 

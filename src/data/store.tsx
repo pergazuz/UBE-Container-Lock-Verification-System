@@ -30,7 +30,8 @@ import { generateSeed } from "./seed";
 //    (login, override, settings, user management), pipe_counting-style.
 // ---------------------------------------------------------------------------
 
-const LOGS_KEY = "ube.logs.v2";
+// v3: seed logs carry real camera stills (public/frames) instead of no images.
+const LOGS_KEY = "ube.logs.v3";
 const EVENTS_KEY = "ube.events.v1";
 /** Oldest events are dropped past this — image-free, so the cap is generous. */
 const EVENTS_CAP = 3000;
