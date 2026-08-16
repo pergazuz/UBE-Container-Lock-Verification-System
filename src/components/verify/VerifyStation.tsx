@@ -32,7 +32,6 @@ import {
   type SideImages,
   type SideKey,
   type VerificationLog,
-  type Verdict,
 } from "@/types";
 
 type Phase = "idle" | "verifying" | "result";
@@ -159,7 +158,6 @@ export function VerifyStation() {
     });
     setLog(newLog);
     setPhase("result");
-    if (settings.soundOnResult) playResultSound(result.overall);
   }, [container, currentUser, stationId, addLog, settings, sampleFor]);
 
   const handleReset = useCallback(() => {
@@ -477,40 +475,6 @@ function ScanBar({
       </div>
     </div>
   );
-}
-
-/** Short audio cue on result — pleasant chime for Pass, low buzz otherwise. */
-function playResultSound(verdict: Verdict) {
-  try {
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    const ctx = new Ctx();
-    const now = ctx.currentTime;
-    const notes =
-      verdict === "Pass"
-        ? [660, 990]
-        : verdict === "Uncertain"
-          ? [520, 520]
-          : [300, 200];
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = verdict === "Pass" ? "sine" : "square";
-      osc.frequency.value = freq;
-      const t = now + i * 0.14;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.18);
-    });
-    setTimeout(() => ctx.close(), 600);
-  } catch {
-    /* audio not available — ignore */
-  }
 }
 
 const STEPS = [

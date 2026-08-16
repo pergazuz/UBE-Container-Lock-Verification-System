@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   SlidersHorizontal,
   Camera,
-  Database,
   Info,
-  Download,
-  RotateCcw,
-  Trash2,
-  ShieldAlert,
-  Volume2,
   Check,
   Lock,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -25,27 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useSettings, type Settings } from "@/data/settings";
 import { useLogStore } from "@/data/store";
 import { useAuth } from "@/data/auth";
 import { CONTAINER_TYPES, STATIONS } from "@/data/constants";
-import { logsToCsv, downloadCsv } from "@/lib/csv";
-import { toDateInputValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function SettingsView() {
-  const { settings, update, reset } = useSettings();
-  const { logs, clearAll, resetToSeed, logEvent } = useLogStore();
+  const { settings, update } = useSettings();
+  const { logEvent } = useLogStore();
   const { currentUser } = useAuth();
-  const [confirmClear, setConfirmClear] = useState(false);
 
   // Verification criteria and station availability are supervisor decisions;
   // operators get a read-only view of both.
@@ -153,33 +135,12 @@ export function SettingsView() {
         </Row>
       </Section>
 
-      {/* ---- Cameras ---- */}
+      {/* ---- Cameras & stations ---- */}
       <Section
         icon={<Camera className="size-4" />}
         title="กล้อง & แหล่งภาพ (Cameras)"
         desc="ค่าเริ่มต้นของกล้องประจำสถานี"
       >
-        <Row
-          label="เสียงแจ้งผล · Sound on result"
-          hint="เล่นเสียงสั้น ๆ เมื่อได้ผล Pass / Fail"
-        >
-          <div className="flex items-center gap-2">
-            <Volume2 className="size-4 text-muted-foreground" />
-            <Switch
-              checked={settings.soundOnResult}
-              onCheckedChange={(v) =>
-                change(
-                  { soundOnResult: v },
-                  "sound",
-                  `เสียงแจ้งผล → ${v ? "เปิด" : "ปิด"}`,
-                )
-              }
-            />
-          </div>
-        </Row>
-
-        <Separator />
-
         <div>
           <div className="mb-2 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -251,73 +212,6 @@ export function SettingsView() {
         </div>
       </Section>
 
-      {/* ---- Data ---- */}
-      <Section
-        icon={<Database className="size-4" />}
-        title="ข้อมูล (Data)"
-        desc="จัดการประวัติการตรวจสอบที่เก็บในเครื่อง"
-      >
-        <Row
-          label="ประวัติการตรวจสอบ"
-          hint={`มีทั้งหมด ${logs.length} รายการ (เก็บใน localStorage ของเบราว์เซอร์)`}
-        >
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!logs.length}
-              onClick={() =>
-                downloadCsv(
-                  `ube-logs-${toDateInputValue(Date.now())}.csv`,
-                  logsToCsv(logs),
-                )
-              }
-            >
-              <Download /> ส่งออกทั้งหมด (CSV)
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => resetToSeed(currentUser?.id)}
-            >
-              <RotateCcw /> รีเซ็ตข้อมูลตัวอย่าง
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={!logs.length}
-              onClick={() => setConfirmClear(true)}
-            >
-              <Trash2 /> ลบประวัติทั้งหมด
-            </Button>
-          </div>
-        </Row>
-
-        <Separator />
-
-        <Row
-          label="รีเซ็ตการตั้งค่า"
-          hint="คืนค่าการตั้งค่าทั้งหมดกลับเป็นค่าเริ่มต้น"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!isSupervisor}
-            title={!isSupervisor ? "รีเซ็ตได้เฉพาะหัวหน้างาน" : undefined}
-            onClick={() => {
-              reset();
-              logEvent({
-                kind: "settings_changed",
-                actor: currentUser?.id,
-                detail: "คืนค่าการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
-              });
-            }}
-          >
-            <RotateCcw /> คืนค่าเริ่มต้น
-          </Button>
-        </Row>
-      </Section>
-
       {/* ---- About ---- */}
       <Section
         icon={<Info className="size-4" />}
@@ -328,36 +222,6 @@ export function SettingsView() {
           <About label="ระบบ" value="UBE Container Lock Verification" />
         </div>
       </Section>
-
-      {/* ---- Confirm clear dialog ---- */}
-      <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="mb-1 flex size-10 items-center justify-center rounded-lg border border-fail/30 bg-fail/10">
-              <ShieldAlert className="size-5 text-fail" />
-            </div>
-            <DialogTitle>ลบประวัติทั้งหมด?</DialogTitle>
-            <DialogDescription>
-              การกระทำนี้จะลบรายการตรวจสอบทั้งหมด ({logs.length} รายการ)
-              ออกจากเครื่องอย่างถาวร ไม่สามารถกู้คืนได้
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmClear(false)}>
-              ยกเลิก
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                clearAll(currentUser?.id);
-                setConfirmClear(false);
-              }}
-            >
-              <Trash2 /> ลบทั้งหมด
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

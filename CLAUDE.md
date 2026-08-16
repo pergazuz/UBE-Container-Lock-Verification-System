@@ -47,7 +47,7 @@ Provider nesting in `App.tsx` is ordered by dependency: `SettingsProvider` → `
 - `src/data/store.tsx` — verification logs (`ube.logs.v2`) **and** the event log (`ube.events.v1`, capped at 3000). `addLog` auto-appends the matching `verify_*` event; `applyOverride` appends an `override` event; `latestForContainer()` drives rework detection. Seeding writes both keys together (`ensureSeeded` → `src/data/seed.ts`, which also builds rework chains and login events).
 - `src/data/auth.tsx` — user accounts (`ube.users.v1`, seeded async from `EMPLOYEES` with SHA-256 password hashes) + signed-in session (`ube.auth.v1`). Guards: can't deactivate yourself, must always keep ≥1 active supervisor. Also exports non-reactive `userName(id)` for tables/CSV. POC-grade hashing — a real backend replaces internals, not the hook surface.
 - `src/data/session.tsx` — station picker only (`ube.station.v1`); *who* is operating comes from auth.
-- `src/data/settings.tsx` — threshold, container type, sound (`ube.settings.v1`).
+- `src/data/settings.tsx` — threshold, container type, station open/close (`ube.settings.v1`). Verification criteria and station availability are supervisor-only in the UI; closed stations are unselectable in the header picker and block verification.
 
 `src/types.ts` is the shared domain contract (verification, users, events). An override never mutates the model result — it's stored alongside it and resolved via `effectiveVerdict(log)`; overrides are retraining data. The event log mirrors pipe_counting: `AUDIT_KINDS` (login, override, settings, user management) are supervisor-only in `/logs`; operators see only verify events.
 
