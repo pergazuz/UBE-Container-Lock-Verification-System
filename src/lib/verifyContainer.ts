@@ -61,23 +61,27 @@ function randBetween(min: number, max: number) {
 }
 
 /**
- * Mock a single side: mostly Locked, occasionally Unlocked / NotVisible.
- * A rework attempt (operator just fixed the latches) skews heavily to Locked.
+ * Mock a single side. With a ground-truth `expected` status (from the chosen
+ * sample clip's final frame) the result is deterministic; otherwise falls
+ * back to a weighted random outcome, where a rework attempt (operator just
+ * fixed the latches) skews heavily to Locked.
  */
-function mockSide(rework: boolean): SideResult {
-  const status = pickWeighted<LockStatus>(
-    rework
-      ? [
-          ["Locked", 87],
-          ["Unlocked", 9],
-          ["NotVisible", 4],
-        ]
-      : [
-          ["Locked", 74],
-          ["Unlocked", 17],
-          ["NotVisible", 9],
-        ],
-  );
+function mockSide(expected: LockStatus | undefined, rework: boolean): SideResult {
+  const status =
+    expected ??
+    pickWeighted<LockStatus>(
+      rework
+        ? [
+            ["Locked", 87],
+            ["Unlocked", 9],
+            ["NotVisible", 4],
+          ]
+        : [
+            ["Locked", 74],
+            ["Unlocked", 17],
+            ["NotVisible", 9],
+          ],
+    );
 
   // Confidence bands feel realistic per outcome.
   const confidence =
@@ -143,8 +147,14 @@ export async function verifyContainer(
   // would be sent to the model / vision endpoint along with the container ID.
   await delay(randBetween(MIN_DELAY, MAX_DELAY));
 
+  // Deterministic when the caller supplies the sample clips' ground truth;
+  // the random "no container" case only applies to fully-random mocking.
+  const deterministic = SIDE_KEYS.some(
+    (k) => input.expectedStatuses?.[k] != null,
+  );
+
   // ~6% of the time no container is detected in the marked zone.
-  const containerPresent = Math.random() > 0.06;
+  const containerPresent = deterministic || Math.random() > 0.06;
   if (!containerPresent) {
     const empty: SideResult = { status: "NotVisible", confidence: 0.2 };
     return {
@@ -160,7 +170,7 @@ export async function verifyContainer(
   const threshold = input.confidenceThreshold ?? CONFIDENCE_THRESHOLD;
   const rework = input.attempt === "rework";
   const sides = Object.fromEntries(
-    SIDE_KEYS.map((k) => [k, mockSide(rework)]),
+    SIDE_KEYS.map((k) => [k, mockSide(input.expectedStatuses?.[k], rework)]),
   ) as Record<SideKey, SideResult>;
   const { overall, confidence, reason } = deriveVerdict(sides, threshold);
 

@@ -57,6 +57,12 @@ export interface VerifyInput {
   images?: SideImages;
   /** Optional override for the Uncertain threshold (from settings). */
   confidenceThreshold?: number;
+  /**
+   * POC only: ground-truth latch state of each side's selected sample clip.
+   * Lets the mock model return a deterministic, demo-friendly result. A real
+   * backend infers this from the images and ignores this field.
+   */
+  expectedStatuses?: Partial<Record<SideKey, LockStatus>>;
 }
 
 /** A supervisor correction applied on top of a prediction. */

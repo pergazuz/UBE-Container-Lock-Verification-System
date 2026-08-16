@@ -2,9 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ScanSearch,
   Loader2,
-  Shuffle,
+  Timer,
   ListChecks,
-  Sparkles,
   QrCode,
   Wrench,
   X,
@@ -27,6 +26,7 @@ import {
   SIDE_KEYS,
   effectiveVerdict,
   type AttemptType,
+  type LockStatus,
   type Override,
   type SideImages,
   type SideKey,
@@ -36,9 +36,6 @@ import {
 
 type Phase = "idle" | "verifying" | "result";
 
-const N = SAMPLE_VIDEOS.length;
-const next = (i: number) => (i + 1) % N;
-
 /** The scanned QR + what we know about this container's history. */
 interface ScannedContainer {
   id: string;
@@ -47,9 +44,14 @@ interface ScannedContainer {
   prev?: VerificationLog;
 }
 
+type SideRecord<T> = Record<SideKey, T>;
+
+const sideRecord = <T,>(init: (k: SideKey, i: number) => T): SideRecord<T> =>
+  Object.fromEntries(SIDE_KEYS.map((k, i) => [k, init(k, i)])) as SideRecord<T>;
+
 /**
- * Grab the current frame of a playing <video> as a JPEG data URL, downscaled —
- * four frames per verification go into localStorage, so keep them small.
+ * Grab the current frame of a <video> as a JPEG data URL, downscaled — four
+ * frames per verification go into localStorage, so keep them small.
  */
 function captureFrame(video: HTMLVideoElement | null | undefined): string | undefined {
   if (!video || !video.videoWidth) return undefined;
@@ -78,18 +80,39 @@ export function VerifyStation() {
   const { logs, addLog, applyOverride, latestForContainer } = useLogStore();
   const { settings } = useSettings();
 
-  const videoEls = useRef<Partial<Record<SideKey, HTMLVideoElement | null>>>({});
-  const [clipIdx, setClipIdx] = useState<Record<SideKey, number>>({
-    A: 0,
-    B: 1 % N,
-    C: 2 % N,
-    D: 3 % N,
-  });
+  const videoEls = useRef<Partial<SideRecord<HTMLVideoElement | null>>>({});
+  // Each camera has its own selected sample clip…
+  const [sampleIds, setSampleIds] = useState<SideRecord<string>>(() =>
+    sideRecord((_, i) => SAMPLE_VIDEOS[i % SAMPLE_VIDEOS.length].id),
+  );
+  // …and each clip must play through to its final frame before Verify unlocks.
+  const [ended, setEnded] = useState<SideRecord<boolean>>(() =>
+    sideRecord(() => false),
+  );
 
   const [container, setContainer] = useState<ScannedContainer | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState<VerificationLog | null>(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
+
+  const sampleFor = useCallback(
+    (k: SideKey) => SAMPLE_VIDEOS.find((s) => s.id === sampleIds[k])!,
+    [sampleIds],
+  );
+  const allEnded = SIDE_KEYS.every((k) => ended[k]);
+
+  const selectSample = useCallback((k: SideKey, id: string) => {
+    setSampleIds((prev) => ({ ...prev, [k]: id }));
+    setEnded((prev) => ({ ...prev, [k]: false }));
+  }, []);
+
+  const replay = useCallback((k: SideKey) => {
+    setEnded((prev) => ({ ...prev, [k]: false }));
+    const v = videoEls.current[k];
+    if (!v) return;
+    v.currentTime = 0;
+    v.play().catch(() => undefined);
+  }, []);
 
   const handleScan = useCallback(
     (raw: string) => {
@@ -105,12 +128,14 @@ export function VerifyStation() {
 
   const handleVerify = useCallback(async () => {
     if (!container || !currentUser) return;
+    // All clips are frozen on their final frame — capture exactly that, and
+    // pass each clip's ground truth so the mock verdict matches what's shown.
     const images: SideImages = {};
+    const expectedStatuses: Partial<Record<SideKey, LockStatus>> = {};
     for (const k of SIDE_KEYS) {
       const img = captureFrame(videoEls.current[k]);
       if (img) images[k] = img;
-      // Freeze the analysed frame on screen while processing / showing result.
-      videoEls.current[k]?.pause();
+      expectedStatuses[k] = sampleFor(k).finalStatus;
     }
 
     setPhase("verifying");
@@ -121,6 +146,7 @@ export function VerifyStation() {
       attempt: container.attempt,
       images,
       confidenceThreshold: settings.confidenceThreshold,
+      expectedStatuses,
     });
     const newLog = addLog({
       containerId: container.id,
@@ -133,26 +159,14 @@ export function VerifyStation() {
     setLog(newLog);
     setPhase("result");
     if (settings.soundOnResult) playResultSound(result.overall);
-  }, [container, currentUser, stationId, addLog, settings]);
+  }, [container, currentUser, stationId, addLog, settings, sampleFor]);
 
   const handleReset = useCallback(() => {
     setPhase("idle");
     setLog(null);
     setContainer(null); // next container needs a fresh scan
-    for (const k of SIDE_KEYS) {
-      videoEls.current[k]?.play().catch(() => undefined);
-    }
-  }, []);
-
-  const shuffle = useCallback(() => {
-    setClipIdx((prev) => {
-      const out = { ...prev };
-      SIDE_KEYS.forEach((k, i) => {
-        out[k] = (prev[k] + i + 1) % N;
-      });
-      return out;
-    });
-  }, []);
+    for (const k of SIDE_KEYS) replay(k);
+  }, [replay]);
 
   const handleOverrideSubmit = useCallback(
     (override: Override) => {
@@ -166,9 +180,11 @@ export function VerifyStation() {
   const statusFor = (k: SideKey) =>
     phase === "result" && log ? log.result.sides[k].status : undefined;
 
+  const ready = Boolean(container) && allEnded;
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-      {/* ---- Left: QR scan + quad cameras + verify ---- */}
+    <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+      {/* ---- Left: QR scan + quad sample-video cameras + verify ---- */}
       <section className="flex flex-col gap-4">
         <ScanBar
           container={container}
@@ -187,14 +203,9 @@ export function VerifyStation() {
               {stationName(stationId)} · ภาพตัวอย่าง (sample footage)
             </p>
           </div>
-          {phase === "idle" && (
-            <Button variant="outline" size="sm" onClick={shuffle}>
-              <Shuffle /> สุ่มตัวอย่างใหม่
-            </Button>
-          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-2 gap-3">
           {SIDE_KEYS.map((k) => (
             <SideCameraPanel
               key={k}
@@ -202,40 +213,49 @@ export function VerifyStation() {
               videoRef={(el) => {
                 videoEls.current[k] = el;
               }}
-              videoSrc={SAMPLE_VIDEOS[clipIdx[k]]}
+              sample={sampleFor(k)}
+              samples={SAMPLE_VIDEOS}
               phase={phase}
               statusAfter={statusFor(k)}
-              onCycle={() => setClipIdx((p) => ({ ...p, [k]: next(p[k]) }))}
+              ended={ended[k]}
+              onEnded={() => setEnded((prev) => ({ ...prev, [k]: true }))}
+              onSelectSample={(id) => selectSample(k, id)}
+              onReplay={() => replay(k)}
             />
           ))}
         </div>
 
-        {/* Hero Verify button — needs a scanned container first */}
+        {/* Hero Verify button — needs a scanned container + all clips ended */}
         <div className="relative">
           <Button
             size="lg"
             onClick={handleVerify}
-            disabled={phase !== "idle" || !container}
-            className="relative h-16 w-full text-lg font-semibold tracking-wide"
+            disabled={phase !== "idle" || !ready}
+            className="relative h-16 w-full text-lg font-semibold tracking-wide shadow-[0_16px_48px_-18px_rgba(54,194,255,0.55)]"
           >
             {phase === "verifying" ? (
               <>
                 <Loader2 className="size-5 animate-spin" />
                 กำลังตรวจสอบ… (Verifying)
               </>
-            ) : container ? (
-              <>
-                <ScanSearch className="size-5" />
-                Verify — ตรวจสอบการล็อกทั้ง 4 ด้าน
-              </>
-            ) : (
+            ) : !container ? (
               <>
                 <QrCode className="size-5" />
                 สแกน QR Code ก่อนเริ่มตรวจสอบ
               </>
+            ) : !allEnded ? (
+              <>
+                <Timer className="size-5" />
+                รอคลิปตัวอย่างเล่นจบ…
+              </>
+            ) : (
+              <>
+                <ScanSearch className="size-5" />
+                Verify — ตรวจสอบการล็อกทั้ง 4 ด้าน
+              </>
             )}
           </Button>
-          {phase === "idle" && container && (
+          {phase === "idle" && ready && (
             <span className="animate-pulse-ring pointer-events-none absolute inset-0 rounded-md" />
           )}
         </div>
@@ -246,7 +266,7 @@ export function VerifyStation() {
       </section>
 
       {/* ---- Right: instructions / result ---- */}
-      <section className="min-w-0">
+      <section className="flex min-w-0 flex-col justify-center">
         {phase === "result" && log ? (
           <ResultDisplay
             log={log}
@@ -293,7 +313,6 @@ function ScanBar({
   onClear: () => void;
 }) {
   const [value, setValue] = useState("");
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // A recent container whose latest attempt is not Pass — for demoing rework.
   const failedCandidate = useMemo(() => {
@@ -361,7 +380,7 @@ function ScanBar({
                 ตู้นี้เคยผ่านแล้ว — ตรวจซ้ำได้ตามปกติ
               </span>
             ) : (
-              "พร้อมตรวจสอบ — กด Verify เพื่อจับภาพจากกล้องทั้ง 4 ตัว"
+              "พร้อมตรวจสอบ — รอคลิปเล่นจบแล้วกด Verify เพื่อตรวจเฟรมสุดท้ายจากกล้องทั้ง 4 ตัว"
             )}
           </p>
         </div>
@@ -385,7 +404,6 @@ function ScanBar({
       >
         <QrCode className="size-5 shrink-0 animate-pulse text-primary" />
         <Input
-          ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           autoFocus
@@ -462,15 +480,15 @@ function playResultSound(verdict: Verdict) {
 
 const STEPS = [
   "สแกน QR Code บนคอนเทนเนอร์ — หมายเลขตู้ (Container ID) เป็นข้อมูลบังคับของทุกการตรวจ",
-  "กล้องทั้ง 4 ตัว (ด้าน A–D) แสดงภาพจากกล้องประจำสถานี (POC ใช้ภาพตัวอย่าง)",
-  "กดปุ่ม Verify — ระบบจับภาพจากกล้องทั้ง 4 ตัวพร้อมกัน แล้วรอผลภายใน 2–3 วินาที",
-  "ระบบสรุปผล Pass / Fail จากสถานะของทั้ง 4 ด้านประกอบกัน",
+  "เลือกคลิปตัวอย่าง — ล็อก หรือ ไม่ล็อก — จากเมนูมุมขวาบนของแต่ละกล้อง (ด้าน A–D)",
+  "รอคลิปเล่นจนจบ ภาพจะหยุดที่เฟรมสุดท้าย แล้วปุ่ม Verify จะพร้อมใช้งาน",
+  "กด Verify — ระบบตรวจเฟรมสุดท้ายของทั้ง 4 ด้าน แล้วสรุปผล Pass / Fail ภายใน 2–3 วินาที",
   "ตู้ที่ไม่ผ่าน: แก้ไขการล็อกแล้วสแกน QR เดิมอีกครั้ง — ระบบจะบันทึกเป็นงานแก้ไข (Rework) ใต้หมายเลขตู้เดียวกัน",
 ];
 
 function InstructionsPanel() {
   return (
-    <div className="flex h-full flex-col gap-5 rounded-xl border border-border bg-card/40 p-6">
+    <div className="panel-glow flex flex-col gap-5 rounded-xl border border-border bg-card/40 p-6">
       <div className="flex items-center gap-2.5">
         <div className="flex size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
           <ListChecks className="size-5 text-primary" />
@@ -493,22 +511,13 @@ function InstructionsPanel() {
           </li>
         ))}
       </ol>
-
-      <div className="mt-auto flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-        <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-        <p className="text-xs text-muted-foreground text-balance">
-          <span className="font-medium text-foreground">โหมด POC:</span>{" "}
-          ผลการตรวจเป็นข้อมูลจำลอง (mock) สำหรับสาธิต flow การใช้งาน —
-          พร้อมเชื่อมต่อโมเดล AI จริงในเฟสถัดไปโดยไม่ต้องแก้ UI
-        </p>
-      </div>
     </div>
   );
 }
 
 function VerifyingPanel() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 rounded-xl border border-border bg-card/40 p-6">
+    <div className="panel-glow flex flex-1 flex-col items-center justify-center gap-5 rounded-xl border border-border bg-card/40 p-6">
       <div className="relative flex size-20 items-center justify-center">
         <span className="absolute inset-0 rounded-full border-2 border-primary/20" />
         <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-primary" />
@@ -531,7 +540,7 @@ function VerifyingPanel() {
           <div
             key={t}
             className="animate-rise flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground"
-            style={{ animationDelay: `${i * 180}ms` }}
+            style={{ animationDelay: `${i * 80}ms` }}
           >
             <Loader2 className="size-3.5 animate-spin text-primary/70" />
             {t}
